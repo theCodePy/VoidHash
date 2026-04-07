@@ -39,3 +39,16 @@ or
 /* run qemu with the .img file. we just created */
 `qemu-system-x86_64 -drive format=raw,unit=0,file=test.img -bios bios64.bin -m 256M -display sdl -vga std -name TESTOS -machine q35 -net none`
 `qemu-system-x86_64 -drive format=raw,unit=0,file=test.img -bios bios64.bin -m 256M sdl -vga std -name TESTOS -machine q35 -net none`
+
+
+
+###########################################################################
+            EDK II Aproach
+#########################################################################
+
+
+`sudo apt install build-essential uuid-dev iasl git gcc qemu-system-x86 ovmf python3-distutils`
+
+`git clone https://github.com/tianocore/edk2.git`
+`cd edk2`
+`git submodule update --init --recursive`
