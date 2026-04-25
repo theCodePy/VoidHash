@@ -49,3 +49,19 @@ Right now, VoidHash just prints text and waits. The next step is to make it usef
 In Phase 2, we need to teach VoidHash how to talk to the virtual USB drive, open a file named `target.txt` (which will contain the hash we want to crack), and read its contents into system memory.
 
 **Shall we create a `target.txt` file on your USB drive and write the C code required to locate and open it using the `EFI_SIMPLE_FILE_SYSTEM_PROTOCOL`?**
+
+
+
+In UEFI programming, string manipulation differs from standard C because the UEFI specification mandates 16-bit Unicode (UTF-16) for all string operations, using the CHAR16 type rather than standard char.  Consequently, standard C library functions from <string.h> like strcpy or strlen are generally unavailable or inappropriate; instead, developers must use UEFI-specific library functions such as StrCpy, StrCmp, and StrnLen provided by <Library/UefiLib.h> or <Library/BaseLib.h>.
+
+
+ Memory Management UEFI does not have a standard heap allocator like malloc. Instead, memory for strings must be allocated using the UEFI Boot Services function AllocatePool and freed using FreePool.
+
+#include <Library/MemoryAllocationLib.h>
+
+CHAR16 *buffer = AllocatePool(100 * sizeof(CHAR16));
+if (buffer) {
+    StrnCpy(buffer, L"Example", 100);
+    // ... use buffer ...
+    FreePool(buffer);
+}
