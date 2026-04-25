@@ -46,9 +46,30 @@ or
             EDK II Aproach
 #########################################################################
 
+install tools method 1:
+`sudo apt install build-essential uuid-dev iasl git gcc qemu-system-x86 ovmf python3-distutils nasm`
+install tools method 2:
+`sudo apt install build-essential uuid-dev acpica-tools git gcc qemu-system-x86 ovmf python3-setuptools nasm`
 
-`sudo apt install build-essential uuid-dev iasl git gcc qemu-system-x86 ovmf python3-distutils`
 
 `git clone https://github.com/tianocore/edk2.git`
 `cd edk2`
 `git submodule update --init --recursive`
+`make -C BaseTools`
+`source edksetup.sh`
+
+
+`vim ~/edk2/Conf/target.txt`
+ACTIVE_PLATFORM       = MdeModulePkg/MdeModulePkg.dsc
+TARGET_ARCH = X64
+TOOL_CHAIN_TAG = GCC
+
+add the application .inf file to [component] section of MdeModulePkg.dsc
+
+`mkdir -p ~/uefi-drive/EFI/BOOT`
+
+`cd edk2`
+`build`
+`cp Build/MdeModule/DEBUG_GCC5/X64/HelloWorld.efi ~/uefi-drive/EFI/BOOT/BOOTX64.EFI`
+
+`qemu-system-x86_64 -bios VoidHash/bios64.bin -drive format=raw,file=fat:rw:$HOME/uefi-drive -net none`
