@@ -72,4 +72,7 @@ add the application .inf file to [component] section of MdeModulePkg.dsc
 `build`
 `cp Build/MdeModule/DEBUG_GCC5/X64/HelloWorld.efi ~/uefi-drive/EFI/BOOT/BOOTX64.EFI`
 
-`qemu-system-x86_64 -bios VoidHash/bios64.bin -drive format=raw,file=fat:rw:$HOME/uefi-drive -net none`
+`qemu-system-x86_64 -bios ~/VoidHash/bios64.bin -drive format=raw,file=fat:rw:$HOME/uefi-drive -net none`   
+
+cp ~/edk2/Build/MdeModule/DEBUG_GCC/X64/VoidHash.efi ~/uefi-drive/VoidHash.efi
+cp ~/uefi-drive/VoidHash.efi ~/uefi-drive/EFI/BOOT/BOOTX64.EFI
