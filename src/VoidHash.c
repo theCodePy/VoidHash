@@ -7,6 +7,8 @@
 EFI_STATUS ReadLine(CHAR16 *Buffer, UINTN BufferSize);
 // EFI_STATUS ArgumentExtract(CHAR16 *InputCommand, UINTN position) ;
 EFI_STATUS StrStrip(CHAR16 *StrInput, CHAR16 C);
+EFI_STATUS StrCountWords(CHAR16 *StrInput, CHAR16 separator, UINTN *Args_Status);
+
 
 EFI_STATUS
 EFIAPI
@@ -20,6 +22,7 @@ UefiMain (
   CHAR16 InputCommand[255]; 
   CHAR16 *Prompt = L"VoidHash:> ";
   // CHAR16 command[10];
+  UINTN Args_Status[2];
 
   // 1. Clear the screen and print the cosmic UI
   gST->ConOut->ClearScreen(gST->ConOut);
@@ -34,8 +37,11 @@ UefiMain (
     
     // Capture user input
     ReadLine(InputCommand, 255);
-    StrStrip(InputCommand, L' ');
+    // StrStrip(InputCommand, L' ');
+    // It returns Args_Status[0]=(number of words), Args_Status[1]=(Max word Length)
+    StrCountWords(InputCommand, L' ', Args_Status);
 
+    Print(L"number of arguments0=%d \nMax word len %d\n", Args_Status[0], Args_Status[1]);
 
     // If the user just pressed Enter without typing, skip to next prompt
     if (StrLen(InputCommand) == 0) {
@@ -57,6 +63,66 @@ UefiMain (
   }
   
   // 3. Clean exit hands control back to firmware
+  return EFI_SUCCESS;
+}
+
+// extract commands and arguments form the input...
+// EFI_STATUS ArgumentExtract(CHAR16 *InputCommand, UINTN position) {
+//   UINTN index;
+//   UINTN strLen_ = StrLen(InputCommand);
+//   UINTN SpaceCount = 0;
+
+//   for (index = 0; index < strLen; index++){
+//     if (SpaceCount == position)
+//       break;
+//     if (InputCommand[index]==L' '){
+//       index
+//     }
+//   }
+// }
+
+
+// to Count how many words are there in a sentance.
+// It returns Args_Status[0]=(number of words), Args_Status[1]=(Max word Length)
+EFI_STATUS StrCountWords(CHAR16 *StrInput, CHAR16 separator, UINTN *Args_Status){
+  // resetting counters && discarding garbage
+  Args_Status[0]=0;
+  Args_Status[1]=0;
+  
+  // if input is NULL string,, return 0
+  if (StrInput == NULL) {
+    return EFI_SUCCESS;
+  }
+
+  UINTN sepO_F = 1;
+  UINTN Count = 0;
+  UINTN i = 0;
+  UINTN MaxW = 0;
+
+  // Counting words 
+  while (StrInput[i] != L'\0'){
+    if (StrInput[i] != separator){
+      // this checks if we are inside a new word after a separator 
+      if (sepO_F == 1){
+        Count ++;
+        sepO_F = 0;
+        MaxW = 1;
+      } else {
+        MaxW++;
+      }
+    } else {
+        if ((sepO_F==0) && (Args_Status[1] < MaxW)){
+          Args_Status[1] = MaxW;
+        }
+        sepO_F=1;
+      }
+    i++;
+  }
+  Args_Status[0] = Count;
+  if (Args_Status[1] < MaxW){
+    Args_Status[1] = MaxW;
+  }
+
   return EFI_SUCCESS;
 }
 
