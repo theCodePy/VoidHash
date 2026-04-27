@@ -37,16 +37,20 @@ UefiMain (
     
     // Capture user input
     ReadLine(InputCommand, 255);
-    // StrStrip(InputCommand, L' ');
+    // Strip the extra spacess ;
+    StrStrip(InputCommand, L' ');
     // It returns Args_Status[0]=(number of words), Args_Status[1]=(Max word Length)
     StrCountWords(InputCommand, L' ', Args_Status);
-
-    Print(L"number of arguments0=%d \nMax word len %d\n", Args_Status[0], Args_Status[1]);
-
-    // If the user just pressed Enter without typing, skip to next prompt
-    if (StrLen(InputCommand) == 0) {
+    
+    // If the user just pressed Enter without typing or typed spaces., skip to next prompt
+    // even though we are striping so checking Args_Status[0] wouldn't be required but anyway...
+    if (StrLen(InputCommand) == 0 || Args_Status[0] == 0) {
       continue;
     }
+
+    // the 2D mtrix to hold the arguments;
+    // CHAR16 *Args_Matrix[Args_Status[0]][Args_Status[1]];
+
 
     // Command Parser: Check for "exit"
     if (StrCmp(InputCommand, L"exit") == 0) {
@@ -85,14 +89,14 @@ UefiMain (
 // to Count how many words are there in a sentance.
 // It returns Args_Status[0]=(number of words), Args_Status[1]=(Max word Length)
 EFI_STATUS StrCountWords(CHAR16 *StrInput, CHAR16 separator, UINTN *Args_Status){
+  // sefty check first
+  if (Args_Status == NULL || StrInput == NULL){
+    return EFI_SUCCESS;
+  }
+  
   // resetting counters && discarding garbage
   Args_Status[0]=0;
   Args_Status[1]=0;
-  
-  // if input is NULL string,, return 0
-  if (StrInput == NULL) {
-    return EFI_SUCCESS;
-  }
 
   UINTN sepO_F = 1;
   UINTN Count = 0;
@@ -118,6 +122,7 @@ EFI_STATUS StrCountWords(CHAR16 *StrInput, CHAR16 separator, UINTN *Args_Status)
       }
     i++;
   }
+  // updating the word count and word length. 
   Args_Status[0] = Count;
   if (Args_Status[1] < MaxW){
     Args_Status[1] = MaxW;
@@ -129,53 +134,42 @@ EFI_STATUS StrCountWords(CHAR16 *StrInput, CHAR16 separator, UINTN *Args_Status)
 
 // strip spaces from user input string
 EFI_STATUS StrStrip(CHAR16 *StrInput, CHAR16 C){
+  // Some Safty checks... blah blah blah..
+  if (StrInput==NULL){
+    return EFI_INVALID_PARAMETER;;
+  }
   UINTN lenStrInput = StrLen(StrInput);
-  CHAR16 tempStr[lenStrInput+1];
+  if (lenStrInput==0) return EFI_SUCCESS;
+
   UINTN i;
-  UINTN j;
   UINTN startIndex;
   UINTN endIndex;
+
+  startIndex = 0;
+  while (StrInput[startIndex] == C && startIndex < lenStrInput){
+    startIndex ++;
+  }
   
-  if (lenStrInput==0) 
-    return EFI_SUCCESS;
-
-  // COPY the str to a tempStr
-  for (i=0; i<lenStrInput; i++){
-    tempStr[i] = StrInput[i];
-  }
-
-  // finding the Starting index without the unwanted character
-  i = 0;
-  while (StrInput[i] == C && i<lenStrInput){
-    i++;
-  }
-  startIndex = i;
   if (startIndex == lenStrInput){
-    for (i=0; i<lenStrInput; i++){
-      StrInput[i] = L'\0';
-    }
+    StrInput[0] = L'\0';
     return EFI_SUCCESS;
   }
 
   // finding the ending index of actual string without the unwanted character
-  i = lenStrInput - 1;
-  while (StrInput[i] == C && i>=0) {
-    i--;
+  endIndex = lenStrInput - 1;
+  while (StrInput[endIndex] == C && endIndex > startIndex) {
+    endIndex--;
   }
-  endIndex = i;
-
+ 
   //update the string 
-  j=0;
-  for (i=startIndex; i<=endIndex; i++){
-    StrInput[j] = tempStr[i];
-    j++;
+  if (startIndex!=0){
+    for (i=0; i<=(endIndex-startIndex); i++){
+      StrInput[i] = StrInput[i + startIndex];
+    }
   }
-  // wiping the string clean hahah haha
-  for (i=lenStrInput-1; i>(endIndex-startIndex); i--){
-    if (i < 0)
-      break;
-    StrInput[i] = L'\0';
-  }
+
+  // terminate the string with '\0'
+  StrInput[endIndex - startIndex + 1] = L'\0';
   
   return EFI_SUCCESS;
 }
