@@ -5,10 +5,10 @@
 
 // Function Prototypes
 EFI_STATUS ReadLine(CHAR16 *Buffer, UINTN BufferSize);
-// EFI_STATUS ArgumentExtract(CHAR16 *InputCommand, UINTN position) ;
 EFI_STATUS StrStrip(CHAR16 *StrInput, CHAR16 C);
 EFI_STATUS StrCountWords(CHAR16 *StrInput, CHAR16 separator, UINTN *Args_Status);
-
+// ArgsSplit() funciton prototype...
+EFI_STATUS ArgsSplit(CHAR16 *StrInput, CHAR16 separator, UINTN row, UINTN col, CHAR16 Args_Matrix[row][col]);
 
 EFI_STATUS
 EFIAPI
@@ -48,9 +48,16 @@ UefiMain (
       continue;
     }
 
+    // extra 1 space for NULL teremination in .
+    Args_Status[1] += 1;
     // the 2D mtrix to hold the arguments;
-    // CHAR16 *Args_Matrix[Args_Status[0]][Args_Status[1]];
+    CHAR16 Args_Matrix[Args_Status[0]][Args_Status[1]];
+    ArgsSplit(InputCommand, L' ', Args_Status[0], Args_Status[1], Args_Matrix);
 
+    // checking and testing the output
+    for (UINTN i = 0; i<Args_Status[0]; i++){
+      Print(L"Row %d = %s\n", i, Args_Matrix[i]);
+    }
 
     // Command Parser: Check for "exit"
     if (StrCmp(InputCommand, L"exit") == 0) {
@@ -70,20 +77,38 @@ UefiMain (
   return EFI_SUCCESS;
 }
 
-// extract commands and arguments form the input...
-// EFI_STATUS ArgumentExtract(CHAR16 *InputCommand, UINTN position) {
-//   UINTN index;
-//   UINTN strLen_ = StrLen(InputCommand);
-//   UINTN SpaceCount = 0;
+// to split the arguments for easiear access. 
+EFI_STATUS ArgsSplit(CHAR16 *StrInput, CHAR16 separator, UINTN row, UINTN col, CHAR16 Args_Matrix[row][col]){
+  UINTN sepFlag = 0;
+  UINTN Rows=0;
+  UINTN Columns;
+  UINTN i=0;
 
-//   for (index = 0; index < strLen; index++){
-//     if (SpaceCount == position)
-//       break;
-//     if (InputCommand[index]==L' '){
-//       index
-//     }
-//   }
-// }
+  while (StrInput[i] != L'\0'){
+    if (StrInput[i] != separator){
+      if (sepFlag == 0){
+        Columns = 0;
+        sepFlag = 1;
+      }
+      Args_Matrix[Rows][Columns] = StrInput[i];
+      Columns++ ;
+      
+    } else {
+      if (sepFlag == 1){
+        sepFlag = 0;
+        Args_Matrix[Rows][Columns] = L'\0';
+        Rows++;
+      }
+    }
+    i++;
+  }
+  // Adding null terminator to the one last word..
+  if (sepFlag == 1){
+    Args_Matrix[Rows][Columns] = L'\0';
+  }
+
+  return EFI_SUCCESS;
+}
 
 
 // to Count how many words are there in a sentance.
