@@ -8,6 +8,7 @@
 
 [Sources]
   VoidHash.c
+  Utils.c
 
 [Packages]
   MdePkg/MdePkg.dec
