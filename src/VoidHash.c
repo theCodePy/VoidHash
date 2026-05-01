@@ -2,8 +2,8 @@
 #include <Library/UefiLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/BaseMemoryLib.h>
-#include "VoidHashUtils.h"
-
+#include <voidUtils.h>
+#include <voidCommandAndControl.h>
 
 EFI_STATUS
 EFIAPI
@@ -51,17 +51,17 @@ UefiMain (
     ArgsSplit(InputCommand, L' ', Args_Status[0], Args_Status[1], Args_Matrix);
 
     
-    // Command Parser: Check for "exit"
-    if (StrCmp(InputCommand, L"exit") == 0) {
+    // Command Parser: Check for "exit" or "quit"
+    if ((StrCmp(InputCommand, L"exit") == 0) || (StrCmp(InputCommand, L"quit") == 0)) {
       Print(L"\n[!] Terminating Zero-OS Environment...\n");
       Print(L"[!] Returning control to motherboard. Adios!\n");
       // Stall for 2 seconds so the user can read the exit message
       gBS->Stall(2000000); 
       break; 
     } 
-    // Command Parser: Placeholder for other commands
+    // execute the other commands !!! 
     else {
-      Print(L"Unknown command: %s\n", InputCommand);
+      ExecuteCommand(Args_Status[0], Args_Status[1], Args_Matrix );
     }
   }
   
