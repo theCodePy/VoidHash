@@ -84,8 +84,6 @@ EFI_STATUS handleLs(UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix[No
         Print(L"Unable to open Volume!!!\r\n\n");
         return EFI_SUCCESS;
     }
-
-    Print(L"so far so good\r\n");
     
     printDirectoryContent(RootDir, L"HashFiles");
     printDirectoryContent(RootDir, L"WordLists");
@@ -107,7 +105,7 @@ EFI_STATUS printDirectoryContent(EFI_FILE_PROTOCOL *RootDir, CHAR16 *subDirName)
     UINT8 Buffer[1024]; 
     UINTN BufferSize = sizeof(Buffer);
     EFI_FILE_INFO *FileInfo;
-    Print(L" Contents of %s :\r\n",subDirName)
+    Print(L"\r\n /%s :\r\n",subDirName);
     while (TRUE) {
         Status = SubFolder->Read(SubFolder, &BufferSize, Buffer);
         if (EFI_ERROR(Status) ) {
@@ -115,12 +113,16 @@ EFI_STATUS printDirectoryContent(EFI_FILE_PROTOCOL *RootDir, CHAR16 *subDirName)
             return EFI_SUCCESS;
         }
         if ((Status==EFI_SUCCESS) && (BufferSize==0)){
+            Print(L"\r\n");
             break;
         }
         FileInfo = (EFI_FILE_INFO *)Buffer;
-        Print(L" %s FileSize=%d\r\n", FileInfo->FileName, FileInfo->FileSize);
         BufferSize = sizeof(Buffer);
-
+        if ((StrCmp(FileInfo->FileName, L"..") == 0 ) || (StrCmp(FileInfo->FileName, L".") == 0 )) {
+            continue;
+        }
+        Print(L" %s  |  FileSize=%d\r\n", FileInfo->FileName, FileInfo->FileSize);
+        
     }
 
     return EFI_SUCCESS;
