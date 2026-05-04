@@ -76,3 +76,4 @@ add the application .inf file to [component] section of MdeModulePkg.dsc
 
 cp ~/edk2/Build/MdeModule/DEBUG_GCC/X64/VoidHash.efi ~/uefi-drive/VoidHash.efi
 cp ~/uefi-drive/VoidHash.efi ~/uefi-drive/EFI/BOOT/BOOTX64.EFI
+qemu-system-x86_64 -bios ~/VoidHash/bios64.bin -drive format=raw,file=fat:rw:$HOME/uefi-drive -net none

@@ -51,3 +51,22 @@ In Phase 2, we need to teach VoidHash how to talk to the virtual USB drive, open
 **Shall we create a `target.txt` file on your USB drive and write the C code required to locate and open it using the `EFI_SIMPLE_FILE_SYSTEM_PROTOCOL`?**
 
 
+`EFI_FILE_INFO`
+typedef struct {
+  UINT64    Size;             // Size of this struct (including the name)
+  UINT64    FileSize;         // Size of the actual file
+  UINT64    PhysicalSize;     // Space it takes on the disk
+  EFI_TIME  CreateTime;
+  EFI_TIME  LastAccessTime;
+  EFI_TIME  ModificationTime;
+  UINT64    Attribute;        // Is it a folder? Is it hidden?
+  CHAR16    FileName[];       // The name of the file!
+} EFI_FILE_INFO;
+
+
+`Read() Prototype`
+Status = RootDir->Read(
+    RootDir,          // The handle of the directory you are reading
+    &BufferSize,      // Pointer to how much space you have in your buffer
+    Buffer            // Pointer to your raw memory buffer
+);

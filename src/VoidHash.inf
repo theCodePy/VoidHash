@@ -16,6 +16,10 @@
   MdeModulePkg/MdeModulePkg.dec
   CryptoPkg/CryptoPkg.dec 
 
+[Protocols]
+  gEfiLoadedImageProtocolGuid
+  gEfiSimpleFileSystemProtocolGuid
+
 [LibraryClasses]
   UefiApplicationEntryPoint
   UefiLib
