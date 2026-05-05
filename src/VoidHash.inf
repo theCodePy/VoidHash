@@ -20,6 +20,9 @@
   gEfiLoadedImageProtocolGuid
   gEfiSimpleFileSystemProtocolGuid
 
+[Guids]
+  gEfiFileInfoGuid
+
 [LibraryClasses]
   UefiApplicationEntryPoint
   UefiLib

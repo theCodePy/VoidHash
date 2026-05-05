@@ -2,9 +2,10 @@
 #include <Library/UefiLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/BaseMemoryLib.h>
+#include <Library/MemoryAllocationLib.h>
 #include <voidUtils.h>
-
-
+#include <Protocol/LoadedImage.h>
+#include <Guid/FileInfo.h>
 
 // to split the arguments for easiear access. 
 EFI_STATUS ArgsSplit(CHAR16 *StrInput, CHAR16 separator, UINTN row, UINTN col, CHAR16 Args_Matrix[row][col]){
@@ -128,6 +129,19 @@ EFI_STATUS StrStrip(CHAR16 *StrInput, CHAR16 C){
   return EFI_SUCCESS;
 }
 
+EFI_STATUS StrReplace(CHAR16 *StringInput, CHAR16 replaceChar, CHAR16 WithChar) {
+  UINTN i=0;
+
+  while (StringInput[i] != L'\0') {
+    if (StringInput[i] == replaceChar ){
+      StringInput[i] = WithChar;
+    }
+    i++;
+  } 
+
+  return EFI_SUCCESS;
+}
+
 
 // A robust input buffer engine
 EFI_STATUS ReadLine(CHAR16 *Buffer, UINTN BufferSize) {
@@ -173,4 +187,111 @@ EFI_STATUS ReadLine(CHAR16 *Buffer, UINTN BufferSize) {
     // Always null-terminate C strings!
     Buffer[Index] = L'\0'; 
     return EFI_SUCCESS;
+}
+
+EFI_STATUS GetActiveRootDir(EFI_FILE_PROTOCOL **RootDir) {
+    EFI_STATUS Status;
+    // 1. Corrected the struct type
+    EFI_LOADED_IMAGE_PROTOCOL *LoadedImage; 
+    EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *FileSystem;
+    Status = gBS->HandleProtocol(
+        gImageHandle, 
+        // 2. Corrected the GUID
+        &gEfiLoadedImageProtocolGuid, 
+        (VOID **)&LoadedImage
+    );
+
+    if (EFI_ERROR (Status)){
+        Print(L"ERROR loading Image!!\r\n\n");
+        return EFI_SUCCESS;
+    }
+
+    Status = gBS->HandleProtocol(
+        LoadedImage->DeviceHandle, 
+        &gEfiSimpleFileSystemProtocolGuid, 
+        (VOID **)&FileSystem
+    );
+
+    if (EFI_ERROR(Status) ) {
+        Print(L"No File System Found !!!\r\n\n");
+        return EFI_SUCCESS;
+    }
+
+    Status = FileSystem->OpenVolume(FileSystem, RootDir);
+
+    if (EFI_ERROR(Status) ) {
+        Print(L"Unable to open Volume!!!\r\n\n");
+        return EFI_SUCCESS;
+    }
+    return EFI_SUCCESS;
+}
+
+
+EFI_STATUS printDirectoryContent(EFI_FILE_PROTOCOL *RootDir, CHAR16 *subDirName) {
+    EFI_FILE_PROTOCOL *SubFolder;
+    EFI_STATUS Status;
+
+    Status = RootDir->Open(RootDir, &SubFolder, subDirName, EFI_FILE_MODE_READ, 0);
+    
+    if (EFI_ERROR(Status) ) {
+        Print(L"No Such directory /%s\r\n\n", subDirName);
+        return EFI_SUCCESS;
+    }
+
+    UINT8 Buffer[1024]; 
+    UINTN BufferSize = sizeof(Buffer);
+    EFI_FILE_INFO *FileInfo;
+    Print(L"\r\n /%s :\r\n",subDirName);
+    while (TRUE) {
+        Status = SubFolder->Read(SubFolder, &BufferSize, Buffer);
+        if (EFI_ERROR(Status) ) {
+            Print(L"Can't Read the folder /%s\r\n\n", subDirName);
+            return EFI_SUCCESS;
+        }
+        if ((Status==EFI_SUCCESS) && (BufferSize==0)){
+            Print(L"\r\n");
+            break;
+        }
+        FileInfo = (EFI_FILE_INFO *)Buffer;
+        BufferSize = sizeof(Buffer);
+        if ((StrCmp(FileInfo->FileName, L"..") == 0 ) || (StrCmp(FileInfo->FileName, L".") == 0 )) {
+            continue;
+        }
+        Print(L" %s  |  FileSize=%d\r\n", FileInfo->FileName, FileInfo->FileSize);
+        
+    }
+
+    return EFI_SUCCESS;
+}
+
+
+
+EFI_STATUS loadFileToRam(CHAR16 *Path_to_file, VOID **FileBuffer) {
+  EFI_FILE_PROTOCOL *RootDir = NULL;
+  EFI_FILE_PROTOCOL *FILE_ptr;
+  EFI_STATUS Status;
+  UINT8 Buffer[1024]; 
+  UINTN BufferSize = sizeof(Buffer);
+  EFI_FILE_INFO *FileInfo;
+  UINT64 FileSize;
+
+  GetActiveRootDir(&RootDir);
+  Status = RootDir->Open(RootDir, &FILE_ptr, Path_to_file, EFI_FILE_MODE_READ, 0);
+  
+  if (EFI_ERROR(Status) ) {
+      Print(L"No Such directory /%s\r\n\n", Path_to_file);
+      return EFI_SUCCESS;
+  }
+
+  Status = FILE_ptr->GetInfo(FILE_ptr, &gEfiFileInfoGuid, &BufferSize, Buffer);
+  if (EFI_ERROR(Status) ) {
+      Print(L"Something went wrong: Can't get file info /%s\r\n\n", Path_to_file);
+      return EFI_SUCCESS;
+  }
+  FileInfo = (EFI_FILE_INFO *)Buffer;
+  FileSize = FileInfo->FileSize;
+  FileBuffer = AllocateZeroPool(FileSize + 1);
+  FILE_ptr->Read(FILE_ptr, &FileSize, FileBuffer);
+
+  return EFI_SUCCESS;
 }
