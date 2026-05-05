@@ -32,7 +32,7 @@ EFI_STATUS ExecuteCommand(UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Mat
 }
 
 EFI_STATUS handleHelp(UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix[No_of_Command][MaxWordLen] ){
-    CHAR16 *help0 = L"\n list of commands you can use:\n\r\n  help\r\n test\r\n  ls    (to list wordlists and hash files)\r\n  voidhash    (to crack hashes)\r\n\n";
+    CHAR16 *help0 = L"\n list of commands you can use:\n\r\n  help\r\n  test\r\n  cat\r\n  ls    (to list wordlists and hash files)\r\n  voidhash    (to crack hashes)\r\n\n";
     CHAR16 *testHelp = L" test command help:\r\n";
 
     if (No_of_Command==1){
@@ -69,7 +69,17 @@ EFI_STATUS handleCat(UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix[N
 
     loadFileToRam(Args_Matrix[1], &FileBuffer);
 
-    Print(L"\r\n here is the content of the file which loaded to RAM :\r\n\n%a", (CHAR8 *)FileBuffer);
+    Print(L"\r\n here is the content of the file which loaded to RAM :\r\n\n");
+    UINTN i=0;
+    CHAR8 *Buffer = (CHAR8 *)FileBuffer;
+    while (Buffer[i] != '\0') {
+        if (Buffer[i] == '\n' ){
+            Print(L"\r\n");
+        } else {
+            Print(L"%c", (CHAR16)Buffer[i]);
+        }
+        i++;
+    }
 
     return EFI_SUCCESS;
 }
