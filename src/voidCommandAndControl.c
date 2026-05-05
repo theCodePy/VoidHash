@@ -3,6 +3,7 @@
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/BaseMemoryLib.h>
 #include <voidUtils.h>
+#include <Library/BaseLib.h>   
 #include <voidCommandAndControl.h>
 #include <Protocol/LoadedImage.h>
 #include <Guid/FileInfo.h>
@@ -23,6 +24,8 @@ EFI_STATUS ExecuteCommand(UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Mat
         handleLs(No_of_Command, MaxWordLen, Args_Matrix );
     } else if (StrCmp(Args_Matrix[0], L"cat") == 0){
         handleCat(No_of_Command, MaxWordLen, Args_Matrix );
+    } else if (StrCmp(Args_Matrix[0], L"test") == 0){
+        handleTest(No_of_Command, MaxWordLen, Args_Matrix );
     }
     else {
         Print(L"Unknown Command: %s\r\n", Args_Matrix[0]);
@@ -84,3 +87,18 @@ EFI_STATUS handleCat(UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix[N
     return EFI_SUCCESS;
 }
 
+
+EFI_STATUS handleTest( UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix[No_of_Command][MaxWordLen]) {
+    if (No_of_Command != 4) {
+        Print(L"\r\nWrong command!!!\r\n to see the correct argument try: `help test`\r\n");
+        return EFI_SUCCESS;
+    }
+
+    UINTN ittr = StrDecimalToUintn(Args_Matrix[3]);
+    if (ittr == 0){
+        Print(L"\r\nWrong command!!!\r\n to see the correct argument try: `help test`\r\n");
+        // I'm working here
+    }
+
+    return EFI_SUCCESS;
+}
