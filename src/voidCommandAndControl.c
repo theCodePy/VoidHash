@@ -8,9 +8,13 @@
 #include <Protocol/LoadedImage.h>
 #include <Guid/FileInfo.h>
 
-// include crypto libs to perform hash operations md5 and sha1 are deprecated.
-#define DISABLE_SHA1_DEPRECATED_INTERFACES
+#include <Library/TimerLib.h>
+
+// include crypto libs to perform hash operations md5 is deprecated.
+#ifndef ENABLE_MD5_DEPRECATED_INTERFACES
 #define ENABLE_MD5_DEPRECATED_INTERFACES
+#endif
+
 #include <Library/BaseCryptLib.h>
 // the hash function we need: Md5HashAll(); Sha1HashAll(); Sha256HashAll(); Sha384HashAll(); Sha512HashAll(); 
 // the output size are defined in the librery as [HASHNAME_DIGEST_SIZE] variable e.g. [MD5_DIGEST_SIZE]
@@ -26,6 +30,8 @@ EFI_STATUS ExecuteCommand(UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Mat
         handleCat(No_of_Command, MaxWordLen, Args_Matrix );
     } else if (StrCmp(Args_Matrix[0], L"test") == 0){
         handleTest(No_of_Command, MaxWordLen, Args_Matrix );
+    } else if (StrCmp(Args_Matrix[0], L"clear") == 0 ){
+        gST->ConOut->ClearScreen(gST->ConOut);
     }
     else {
         Print(L"Unknown Command: %s\r\n", Args_Matrix[0]);
@@ -89,6 +95,8 @@ EFI_STATUS handleCat(UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix[N
 
 
 EFI_STATUS handleTest( UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix[No_of_Command][MaxWordLen]) {
+    // test command architecture
+    // test  <algorithm>  <wordlist>  <iterations>
     if (No_of_Command != 4) {
         Print(L"\r\nWrong command!!!\r\n to see the correct argument try: `help test`\r\n");
         return EFI_SUCCESS;
@@ -96,9 +104,43 @@ EFI_STATUS handleTest( UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix
 
     UINTN ittr = StrDecimalToUintn(Args_Matrix[3]);
     if (ittr == 0){
-        Print(L"\r\nWrong command!!!\r\n to see the correct argument try: `help test`\r\n");
-        // I'm working here
+        Print(L"\r\nZero itteretion: nothing to do!!! \r\n\r\n");
+        return EFI_SUCCESS;
     }
+    
+    BOOLEAN EFIAPI (*HashAlgo) (CONST VOID *Data, UINTN DataSize, UINT8 *HashValue);
+
+    // hash algorithm options to choose from 
+    if (StrCmp(Args_Matrix[1], L"md5") == 0) {
+        HashAlgo = Md5HashAll ;
+    } else if (StrCmp(Args_Matrix[1], L"sha1") == 0) {
+        HashAlgo =  Sha1HashAll ;
+    } else if (StrCmp(Args_Matrix[1], L"sha256") == 0) {
+        HashAlgo =  Sha256HashAll ;
+    } else if (StrCmp(Args_Matrix[1], L"sha256") == 0) {
+        HashAlgo =  Sha512HashAll ;
+    } else if (StrCmp(Args_Matrix[1], L"sha384") == 0) {
+        HashAlgo =  Sha384HashAll ;
+    } else {
+        Print(L"\r\nOnly supported algorithms: md5, sha1, sha256, sha384, sha512\r\n\r\n");
+    }
+
+
+    if (ittr==2){
+        UINT8 * hASH;
+        HashAlgo(L"data", 234, hASH);
+    }
+    VOID *FileBuffer = NULL;
+    StrReplace(Args_Matrix[1], L'/', L'\\');
+    loadFileToRam(Args_Matrix[1], &FileBuffer);
+
+    UINT64 StartTime = GetTimeInNanoSecond(GetPerformanceCounter());
+
+    // ... RUN YOUR MASSIVE HASHING LOOP HERE ...
+
+    UINT64 EndTime = GetTimeInNanoSecond(GetPerformanceCounter());
+    UINT64 TotalTimeNs = EndTime - StartTime;
+    Print(L"total time used: %d\r\n\n", TotalTimeNs);
 
     return EFI_SUCCESS;
 }

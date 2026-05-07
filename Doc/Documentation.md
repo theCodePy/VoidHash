@@ -70,3 +70,17 @@ Status = RootDir->Read(
     &BufferSize,      // Pointer to how much space you have in your buffer
     Buffer            // Pointer to your raw memory buffer
 );
+
+
+
+Include #include <Library/TimerLib.h> in your C file.
+Use the GetTimeInNanoSecond(GetPerformanceCounter()) function.
+
+  UINT64 StartTime = GetTimeInNanoSecond(GetPerformanceCounter());
+
+  // ... RUN YOUR MASSIVE HASHING LOOP HERE ...
+
+  UINT64 EndTime = GetTimeInNanoSecond(GetPerformanceCounter());
+  UINT64 TotalTimeNs = EndTime - StartTime;
+  // Now you can calculate exact Hashes Per Second!
+

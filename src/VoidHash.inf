@@ -28,3 +28,5 @@
   UefiLib
   UefiBootServicesTableLib
   MemoryAllocationLib
+  TimerLib
+  BaseCryptLib

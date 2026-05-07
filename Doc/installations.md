@@ -64,7 +64,21 @@ ACTIVE_PLATFORM       = MdeModulePkg/MdeModulePkg.dsc
 TARGET_ARCH = X64
 TOOL_CHAIN_TAG = GCC
 
+`changes in MdeModulePkg.dsc file`
 add the application .inf file to [component] section of MdeModulePkg.dsc
+[BuildOptions]
+  GCC:*_*_*_CC_FLAGS = -D ENABLE_MD5_DEPRECATED_INTERFACES
+[PcdsFixedAtBuild]
+  gEfiCryptoPkgTokenSpaceGuid.PcdCryptoServiceFamilyEnable.HmacMd5.Service|TRUE
+  gEfiCryptoPkgTokenSpaceGuid.PcdCryptoServiceFamilyEnable.Md5.Service|
+[LibraryClasses]
+  BaseCryptLib|CryptoPkg/Library/BaseCryptLib/BaseCryptLib.inf
+  OpensslLib|CryptoPkg/Library/OpensslLib/OpensslLib.inf
+  IntrinsicLib|CryptoPkg/Library/IntrinsicLib/IntrinsicLib.inf
+  RngLib|MdeModulePkg/Library/BaseRngLibTimerLib/BaseRngLibTimerLib.inf
+
+
+
 
 `mkdir -p ~/uefi-drive/EFI/BOOT`
 
@@ -77,3 +91,8 @@ add the application .inf file to [component] section of MdeModulePkg.dsc
 cp ~/edk2/Build/MdeModule/DEBUG_GCC/X64/VoidHash.efi ~/uefi-drive/VoidHash.efi
 cp ~/uefi-drive/VoidHash.efi ~/uefi-drive/EFI/BOOT/BOOTX64.EFI
 qemu-system-x86_64 -bios ~/VoidHash/bios64.bin -drive format=raw,file=fat:rw:$HOME/uefi-drive -net none
+
+
+cp ~/projects/edk2/Build/MdeModule/DEBUG_GCC/X64/VoidHash.efi ~/projects/VoidHash/uefi-drive/VoidHash.efi
+cp ~/projects/VoidHash/uefi-drive/VoidHash.efi ~/projects/VoidHash/uefi-drive/EFI/BOOT/BOOTX64.EFI
+qemu-system-x86_64 -bios ~/projects/VoidHash/bios64.bin -drive format=raw,file=fat:rw:$HOME/projects/VoidHash/uefi-drive -net none
