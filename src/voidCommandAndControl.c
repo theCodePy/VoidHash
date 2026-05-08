@@ -227,15 +227,36 @@ EFI_STATUS handleTest( UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix
         Print(L"[!] Unable to get base clock speed, might be running on a VM??\r\n");
         Print(L"[!] Skipping time calculation\r\n");
     } else {
-        // Because Frequency is NOT zero, this math is now 100% safe
-        UINT64 TotalTimeNs = (TotalTicks * 1000000000ULL) / Frequency;
+        // --- 1. SAFE NANOSECOND CALCULATION (Prevents 6-second overflow) ---
+        UINT64 SecondsFull     = TotalTicks / Frequency;
+        UINT64 RemainderTicks  = TotalTicks % Frequency;
         
-        // Convert to human readable formats
-        UINT64 TimeMs = TotalTimeNs / 1000000;
+        // Calculate nanoseconds safely
+        UINT64 TotalTimeNs = (SecondsFull * 1000000000ULL) + ((RemainderTicks * 1000000000ULL) / Frequency);
+        
+        // Convert to human-readable formats
+        UINT64 TimeUs  = TotalTimeNs / 1000;
+        UINT64 TimeMs  = TimeUs / 1000;
         UINT64 TimeSec = TimeMs / 1000;
+
+        // --- 2. HIGH-PRECISION RATE CALCULATIONS ---
+        UINT64 HashesPerSec = 0;
+        UINT64 HashesPerUs  = 0;
+
+        // Safety catch: Ensure we don't divide by zero if the program was unimaginably fast
+        if (TotalTimeNs > 0) {
+            HashesPerSec = (totalHash * 1000000000ULL) / TotalTimeNs;
+            HashesPerUs  = (totalHash * 1000000ULL) / TotalTimeNs;
+        }
+
+        // --- 3. THE FINAL PRINTOUT ---
+        Print(L"Time Elapsed: %lu sec | %lu ms | %lu us | %lu ns\r\n", TimeSec, TimeMs, TimeUs, TotalTimeNs);
         
-        Print(L"Hash/Sec:%lu     Time Elapsed: %lu Seconds  (%lu ms)  [%lu ns]\r\n",(totalHash / TimeSec), TimeSec, TimeMs, TotalTimeNs);
-        Print(L": %lu Seconds   (%lu ms)   [%lu ns]\r\n", TimeSec, TimeMs, TotalTimeNs);
+        if (TotalTimeNs > 0) {
+            Print(L"Performance:  %lu Hash/Sec  |  %lu Hash/us\r\n", HashesPerSec, HashesPerUs);
+        } else {
+            Print(L"Performance:  Execution too fast to measure rate!\r\n");
+        }
     }
 
     return EFI_SUCCESS;
