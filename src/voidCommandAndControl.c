@@ -76,7 +76,11 @@ EFI_STATUS handleCat(UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix[N
 
     StrReplace(Args_Matrix[1], L'/', L'\\');
 
-    loadFileToRam(Args_Matrix[1], &FileBuffer);
+    EFI_STATUS Status = loadFileToRam(Args_Matrix[1], &FileBuffer);
+
+    if EFI_ERROR(Status){
+        return EFI_SUCCESS;
+    }
 
     Print(L"\r\n here is the content of the file which loaded to RAM :\r\n\n");
     UINTN i=0;
@@ -99,47 +103,97 @@ EFI_STATUS handleTest( UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix
     // test  <algorithm>  <wordlist>  <iterations>
     if (No_of_Command != 4) {
         Print(L"\r\nWrong command!!!\r\n to see the correct argument try: `help test`\r\n");
-        return EFI_SUCCESS;
+        return EFI_INVALID_PARAMETER;
     }
 
     UINTN ittr = StrDecimalToUintn(Args_Matrix[3]);
     if (ittr == 0){
         Print(L"\r\nZero itteretion: nothing to do!!! \r\n\r\n");
-        return EFI_SUCCESS;
+        return EFI_INVALID_PARAMETER;
     }
     
     BOOLEAN EFIAPI (*HashAlgo) (CONST VOID *Data, UINTN DataSize, UINT8 *HashValue);
+    UINTN hashsize = 0;
+    UINTN i; 
 
     // hash algorithm options to choose from 
     if (StrCmp(Args_Matrix[1], L"md5") == 0) {
         HashAlgo = Md5HashAll ;
+        hashsize = MD5_DIGEST_SIZE;
     } else if (StrCmp(Args_Matrix[1], L"sha1") == 0) {
         HashAlgo =  Sha1HashAll ;
+        hashsize = SHA1_DIGEST_SIZE;
     } else if (StrCmp(Args_Matrix[1], L"sha256") == 0) {
         HashAlgo =  Sha256HashAll ;
-    } else if (StrCmp(Args_Matrix[1], L"sha256") == 0) {
+        hashsize = SHA256_DIGEST_SIZE;
+    } else if (StrCmp(Args_Matrix[1], L"sha512") == 0) {
         HashAlgo =  Sha512HashAll ;
+        hashsize = SHA512_DIGEST_SIZE;
     } else if (StrCmp(Args_Matrix[1], L"sha384") == 0) {
         HashAlgo =  Sha384HashAll ;
+        hashsize = SHA384_DIGEST_SIZE;
     } else {
         Print(L"\r\nOnly supported algorithms: md5, sha1, sha256, sha384, sha512\r\n\r\n");
+        return EFI_INVALID_PARAMETER;
     }
 
-
-    if (ittr==2){
-        UINT8 * hASH;
-        HashAlgo(L"data", 234, hASH);
-    }
+    // loading the file into the buffer inside RAM;
     VOID *FileBuffer = NULL;
-    StrReplace(Args_Matrix[1], L'/', L'\\');
-    loadFileToRam(Args_Matrix[1], &FileBuffer);
+    UINTN s = StrLen(Args_Matrix[2]);
+    if (s<1){
+        Print(L"\r\nINVALID fileName\r\n\r\n");
+        return EFI_INVALID_PARAMETER;
+    }
+    CHAR16 wordListName[s +10] ;
+    wordListName[0] = L'W';
+    wordListName[1] = L'o';
+    wordListName[2] = L'r';
+    wordListName[3] = L'd';
+    wordListName[4] = L'L';
+    wordListName[5] = L'i';
+    wordListName[6] = L's';
+    wordListName[7] = L't';
+    wordListName[8] = L's';
+    wordListName[9] = L'\\';
+    i=0;  
+    while (Args_Matrix[2][i] != L'\0'){
+        wordListName[10+i]=Args_Matrix[2][i] ;
+        i++;
+    }
+    wordListName[10+i] = L'\0';
+    loadFileToRam(wordListName, &FileBuffer);
+    CHAR8 *fBuffer = (CHAR8 *)FileBuffer;
+
+    // CHAR8 *word1 = "password";
+    // CHAR8 word10[4][15] = {"password", "P@ssw0rd", "123456789", "rohan@2002"};
+    UINT8 HashValue[hashsize + 1];
+    CHAR8 hexDigest[(hashsize * 2) + 1];
+    UINTN buffPtr=0;
+    UINTN wLen;
+
+    //  replace \n with \0
+    Print(L"formating the file...\r\n");
+    AsciiCharReplace(fBuffer, '\n', '\0');
 
     UINT64 StartTime = GetTimeInNanoSecond(GetPerformanceCounter());
-
-    // ... RUN YOUR MASSIVE HASHING LOOP HERE ...
-
+    
+    for (i=0; i<ittr; i++){
+        while (fBuffer[buffPtr] != '\0'){
+            wLen = AsciiStrLen(&fBuffer[buffPtr]);
+            
+            HashAlgo(&(fBuffer[buffPtr]), wLen, HashValue);
+            HashToHexStr(HashValue, hashsize, hexDigest);
+            Print(L"    %s : %a : %a\r\n", Args_Matrix[1], &(fBuffer[buffPtr]), hexDigest);
+            buffPtr += wLen + 1;
+        }
+        buffPtr = 0;
+        Print(L"progress itteration: %d  \r", ittr);
+    }
+    
     UINT64 EndTime = GetTimeInNanoSecond(GetPerformanceCounter());
     UINT64 TotalTimeNs = EndTime - StartTime;
+    
+    Print(L"\r\n");
     Print(L"total time used: %d\r\n\n", TotalTimeNs);
 
     return EFI_SUCCESS;

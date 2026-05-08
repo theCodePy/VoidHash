@@ -84,3 +84,11 @@ Use the GetTimeInNanoSecond(GetPerformanceCounter()) function.
   UINT64 TotalTimeNs = EndTime - StartTime;
   // Now you can calculate exact Hashes Per Second!
 
+
+
+EFI_SUCCESS: Everything went fine (0).
+EFI_INVALID_PARAMETER: An input argument was NULL or out of range.
+EFI_NOT_FOUND: A file, protocol, or data wasn't located.
+EFI_BUFFER_TOO_SMALL: The provided buffer isn't big enough for the output.
+EFI_DEVICE_ERROR: Something went wrong with the hardware.
+EFI_UNSUPPORTED: The requested operation isn't implemented.

@@ -10,7 +10,9 @@ EFI_STATUS ArgsSplit(CHAR16 *StrInput, CHAR16 separator, UINTN row, UINTN col, C
 EFI_STATUS printDirectoryContent(EFI_FILE_PROTOCOL *RootDir, CHAR16 *subDirName) ;
 EFI_STATUS GetActiveRootDir(EFI_FILE_PROTOCOL **RootDir) ;
 EFI_STATUS StrReplace(CHAR16 *StringInput, CHAR16 replaceChar, CHAR16 WithChar);
+EFI_STATUS AsciiCharReplace(CHAR8 *StringInput, CHAR8 replaceChar, CHAR8 WithChar) ;
 EFI_STATUS loadFileToRam(CHAR16 *Path_to_file, VOID **FileBuffer);
+VOID HashToHexStr(UINT8 *HashValue, UINTN HashSize, CHAR8 *HexStr);
 
 #endif
 

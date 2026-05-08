@@ -142,6 +142,18 @@ EFI_STATUS StrReplace(CHAR16 *StringInput, CHAR16 replaceChar, CHAR16 WithChar) 
   return EFI_SUCCESS;
 }
 
+EFI_STATUS AsciiCharReplace(CHAR8 *StringInput, CHAR8 replaceChar, CHAR8 WithChar) {
+  UINTN i=0;
+
+  while (StringInput[i] != '\0') {
+    if (StringInput[i] == replaceChar ){
+      StringInput[i] = WithChar;
+    }
+    i++;
+  } 
+
+  return EFI_SUCCESS;
+}
 
 // A robust input buffer engine
 EFI_STATUS ReadLine(CHAR16 *Buffer, UINTN BufferSize) {
@@ -280,13 +292,13 @@ EFI_STATUS loadFileToRam(CHAR16 *Path_to_file, VOID **FileBuffer) {
   
   if (EFI_ERROR(Status) ) {
       Print(L"No Such directory /%s\r\n\n", Path_to_file);
-      return EFI_SUCCESS;
+      return EFI_NOT_FOUND;
   }
 
   Status = FILE_ptr->GetInfo(FILE_ptr, &gEfiFileInfoGuid, &BufferSize, Buffer);
   if (EFI_ERROR(Status) ) {
       Print(L"Something went wrong: Can't get file info /%s\r\n\n", Path_to_file);
-      return EFI_SUCCESS;
+      return EFI_DEVICE_ERROR;
   }
   FileInfo = (EFI_FILE_INFO *)Buffer;
   FileSize = FileInfo->FileSize;
@@ -295,4 +307,20 @@ EFI_STATUS loadFileToRam(CHAR16 *Path_to_file, VOID **FileBuffer) {
   // *FileBuffer + FileSize + 1 = '\0';
 
   return EFI_SUCCESS;
+}
+
+
+VOID HashToHexStr(UINT8 *HashValue, UINTN HashSize, CHAR8 *HexStr) {
+    CHAR8 *HexChars = "0123456789abcdef";
+    UINTN i;
+    
+    for (i = 0; i < HashSize; i++) {
+        // Shift right 4 bits to get the first half of the byte, lookup the character
+        HexStr[i * 2]       = HexChars[(HashValue[i] >> 4) & 0x0F];
+        // Bitwise AND to get the second half of the byte, lookup the character
+        HexStr[(i * 2) + 1] = HexChars[HashValue[i] & 0x0F];
+    }
+    
+    // Cap it off with a null terminator
+    HexStr[HashSize * 2] = '\0';
 }
