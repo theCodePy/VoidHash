@@ -113,6 +113,7 @@ EFI_STATUS handleTest( UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix
     }
     
     BOOLEAN EFIAPI (*HashAlgo) (CONST VOID *Data, UINTN DataSize, UINT8 *HashValue);
+    EFI_STATUS Status;
     UINTN hashsize = 0;
     UINTN i; 
 
@@ -161,40 +162,81 @@ EFI_STATUS handleTest( UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix
         i++;
     }
     wordListName[10+i] = L'\0';
-    loadFileToRam(wordListName, &FileBuffer);
+    Status = loadFileToRam(wordListName, &FileBuffer);
+    if EFI_ERROR (Status){
+        return EFI_SUCCESS;
+    }
     CHAR8 *fBuffer = (CHAR8 *)FileBuffer;
 
     // CHAR8 *word1 = "password";
     // CHAR8 word10[4][15] = {"password", "P@ssw0rd", "123456789", "rohan@2002"};
     UINT8 HashValue[hashsize + 1];
-    CHAR8 hexDigest[(hashsize * 2) + 1];
+    // CHAR8 hexDigest[(hashsize * 2) + 1];
     UINTN buffPtr=0;
     UINTN wLen;
+    UINT64 totalHash=0;
 
     //  replace \n with \0
-    Print(L"formating the file...\r\n");
     AsciiCharReplace(fBuffer, '\n', '\0');
 
-    UINT64 StartTime = GetTimeInNanoSecond(GetPerformanceCounter());
+    UINT64 Frequency;
+    UINT64 StartTicks, StartCycles;
+    UINT64 EndTicks, EndCycles;
+    UINT64 TotalTicks, TotalCycles;
     
+    // 2. Query the Motherboard for the Timer Frequency
+    // If running in QEMU, this will likely return 0.
+    Frequency = GetPerformanceCounterProperties(NULL, NULL);
+
+    // 3. START BOTH CLOCKS
+    StartTicks = GetPerformanceCounter();
+    StartCycles = AsmReadTsc();
+
+
     for (i=0; i<ittr; i++){
         while (fBuffer[buffPtr] != '\0'){
             wLen = AsciiStrLen(&fBuffer[buffPtr]);
-            
+
             HashAlgo(&(fBuffer[buffPtr]), wLen, HashValue);
-            HashToHexStr(HashValue, hashsize, hexDigest);
-            Print(L"    %s : %a : %a\r\n", Args_Matrix[1], &(fBuffer[buffPtr]), hexDigest);
             buffPtr += wLen + 1;
+            totalHash++;
         }
         buffPtr = 0;
-        Print(L"progress itteration: %d  \r", ittr);
+        Print(L"progress itteration: %d  \r", i+1);
     }
+
+    EndCycles = AsmReadTsc();
+    EndTicks = GetPerformanceCounter();
+
+    // 5. CALCULATE RAW DIFFERENCES
+    TotalCycles = EndCycles - StartCycles;
+    TotalTicks = EndTicks - StartTicks;
+
+    // 6. REPORTING AND SAFE MATH
+    Print(L"\r\n--- Benchmark Results ---\r\n");
+    Print(L"Total CPU Cycles: %lu    ", TotalCycles);
     
-    UINT64 EndTime = GetTimeInNanoSecond(GetPerformanceCounter());
-    UINT64 TotalTimeNs = EndTime - StartTime;
-    
-    Print(L"\r\n");
-    Print(L"total time used: %d\r\n\n", TotalTimeNs);
+    if (totalHash > 0) {
+        Print(L"    Speed: %lu Cycles/Hash\r\n", (TotalCycles / totalHash));
+    }
+
+    Print(L"-------------------------\r\n");
+
+    // 7. THE SAFETY VALVE (Preventing the Divide-by-Zero crash)
+    if (Frequency == 0) {
+        Print(L"[!] Unable to get base clock speed, might be running on a VM??\r\n");
+        Print(L"[!] Skipping time calculation\r\n");
+    } else {
+        // Because Frequency is NOT zero, this math is now 100% safe
+        UINT64 TotalTimeNs = (TotalTicks * 1000000000ULL) / Frequency;
+        
+        // Convert to human readable formats
+        UINT64 TimeMs = TotalTimeNs / 1000000;
+        UINT64 TimeSec = TimeMs / 1000;
+        
+        Print(L"Hash/Sec:%lu     Time Elapsed: %lu Seconds  (%lu ms)  [%lu ns]\r\n",(totalHash / TimeSec), TimeSec, TimeMs, TotalTimeNs);
+        Print(L": %lu Seconds   (%lu ms)   [%lu ns]\r\n", TimeSec, TimeMs, TotalTimeNs);
+    }
 
     return EFI_SUCCESS;
 }

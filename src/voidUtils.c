@@ -302,9 +302,11 @@ EFI_STATUS loadFileToRam(CHAR16 *Path_to_file, VOID **FileBuffer) {
   }
   FileInfo = (EFI_FILE_INFO *)Buffer;
   FileSize = FileInfo->FileSize;
-  *FileBuffer = AllocateZeroPool(FileSize + 1);
+  *FileBuffer = AllocateZeroPool(FileSize + 3);
   FILE_ptr->Read(FILE_ptr, &FileSize, *FileBuffer);
-  // *FileBuffer + FileSize + 1 = '\0';
+  FileBuffer[ FileSize] = '\0';
+  FileBuffer[ FileSize + 1] = '\0';
+  // FileBuffer[ FileSize + 2] = '\0';
 
   return EFI_SUCCESS;
 }
