@@ -303,6 +303,12 @@ EFI_STATUS loadFileToRam(CHAR16 *Path_to_file, VOID **FileBuffer) {
   FileInfo = (EFI_FILE_INFO *)Buffer;
   FileSize = FileInfo->FileSize;
   *FileBuffer = AllocateZeroPool(FileSize + 3);
+
+  if (FileBuffer == NULL) {
+    Print(L"Can't allocate %d bytes of contiguous RAM!\r\n", FileSize);
+    return EFI_DEVICE_ERROR;
+  }
+
   FILE_ptr->Read(FILE_ptr, &FileSize, *FileBuffer);
   FileBuffer[ FileSize] = '\0';
   FileBuffer[ FileSize + 1] = '\0';

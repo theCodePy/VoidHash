@@ -5,6 +5,7 @@
 #include <voidUtils.h>
 #include <Library/BaseLib.h>   
 #include <voidCommandAndControl.h>
+#include <Library/MemoryAllocationLib.h>
 #include <Protocol/LoadedImage.h>
 #include <Guid/FileInfo.h>
 
@@ -92,6 +93,10 @@ EFI_STATUS handleCat(UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix[N
             Print(L"%c", (CHAR16)Buffer[i]);
         }
         i++;
+    }
+
+    if (FileBuffer != NULL) {
+        FreePool(FileBuffer);
     }
 
     return EFI_SUCCESS;
@@ -257,6 +262,10 @@ EFI_STATUS handleTest( UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix
         } else {
             Print(L"Performance:  Execution too fast to measure rate!\r\n");
         }
+    }
+
+    if (FileBuffer != NULL) {
+        FreePool(FileBuffer);
     }
 
     return EFI_SUCCESS;

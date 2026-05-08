@@ -12,6 +12,7 @@ UefiMain (
   IN EFI_SYSTEM_TABLE  *SystemTable
   )
 {
+  gBS->SetWatchdogTimer(0, 0, 0, NULL);
   // Using a static array is safer than AllocatePool for simple user input.
   // UEFI specs 2.11, section 2.3.1 Data types.
   CHAR16 InputCommand[255]; 
