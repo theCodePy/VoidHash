@@ -8,6 +8,8 @@
 #include <Library/MemoryAllocationLib.h>
 #include <Protocol/LoadedImage.h>
 #include <Guid/FileInfo.h>
+#include <Library/PrintLib.h>
+
 
 #include <Library/TimerLib.h>
 
@@ -21,6 +23,24 @@
 // the output size are defined in the librery as [HASHNAME_DIGEST_SIZE] variable e.g. [MD5_DIGEST_SIZE]
 // input data for all of them are (CONST VOID *Data, UINTN DataSize, UINT8 *HashValue)
 
+// this is to wake up all the core's of cpu to crack the hash...
+#include <PiDxe.h>
+#include <Protocol/MpService.h>
+
+// The blueprint for what each core needs to know
+typedef struct {
+    CHAR8 *StartPtr;
+    CHAR8 *EndPtr;
+    UINT8 TargetHashBinary[64]; // Max size for SHA-512
+    UINTN HashByteSize;
+    BOOLEAN EFIAPI (*HashAlgo)(CONST VOID *, UINTN, UINT8 *);
+    
+    // THE KILL SWITCH
+    volatile BOOLEAN *GlobalPasswordFound;
+    CHAR8 *FoundPasswordDest; 
+} AP_CRACKING_TASK;
+
+
 
 EFI_STATUS ExecuteCommand(UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix[No_of_Command][MaxWordLen] ){
     if (StrCmp(Args_Matrix[0], L"help") == 0){
@@ -33,6 +53,8 @@ EFI_STATUS ExecuteCommand(UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Mat
         handleTest(No_of_Command, MaxWordLen, Args_Matrix );
     } else if (StrCmp(Args_Matrix[0], L"clear") == 0 ){
         gST->ConOut->ClearScreen(gST->ConOut);
+    } else if (StrCmp(Args_Matrix[0], L"voidhash") == 0){
+        handleVoidHash(No_of_Command, MaxWordLen, Args_Matrix );
     }
     else {
         Print(L"Unknown Command: %s\r\n", Args_Matrix[0]);
@@ -74,10 +96,10 @@ EFI_STATUS handleLs(UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix[No
 
 EFI_STATUS handleCat(UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix[No_of_Command][MaxWordLen] ){
     VOID *FileBuffer = NULL;
-
+    UINTN fileSize;
     StrReplace(Args_Matrix[1], L'/', L'\\');
 
-    EFI_STATUS Status = loadFileToRam(Args_Matrix[1], &FileBuffer);
+    EFI_STATUS Status = loadFileToRam(Args_Matrix[1], &FileBuffer, &fileSize);
 
     if EFI_ERROR(Status){
         return EFI_SUCCESS;
@@ -143,36 +165,26 @@ EFI_STATUS handleTest( UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix
         return EFI_INVALID_PARAMETER;
     }
 
+    Print(L"loading file...\r\n");
     // loading the file into the buffer inside RAM;
     VOID *FileBuffer = NULL;
+    UINTN fileSize;
     UINTN s = StrLen(Args_Matrix[2]);
     if (s<1){
         Print(L"\r\nINVALID fileName\r\n\r\n");
         return EFI_INVALID_PARAMETER;
     }
-    CHAR16 wordListName[s +10] ;
-    wordListName[0] = L'W';
-    wordListName[1] = L'o';
-    wordListName[2] = L'r';
-    wordListName[3] = L'd';
-    wordListName[4] = L'L';
-    wordListName[5] = L'i';
-    wordListName[6] = L's';
-    wordListName[7] = L't';
-    wordListName[8] = L's';
-    wordListName[9] = L'\\';
-    i=0;  
-    while (Args_Matrix[2][i] != L'\0'){
-        wordListName[10+i]=Args_Matrix[2][i] ;
-        i++;
-    }
-    wordListName[10+i] = L'\0';
-    Status = loadFileToRam(wordListName, &FileBuffer);
+    CHAR16 wordListName[255];
+
+    // concatinate 2 strings,,, woww this function is awsome..
+    UnicodeSPrint(wordListName, sizeof(wordListName), L"WordLists\\%s", Args_Matrix[2]);
+
+    Status = loadFileToRam(wordListName, &FileBuffer, &fileSize);
     if EFI_ERROR (Status){
         return EFI_SUCCESS;
     }
     CHAR8 *fBuffer = (CHAR8 *)FileBuffer;
-
+    Print(L"fileSize=%d\r\n", fileSize);
     // CHAR8 *word1 = "password";
     // CHAR8 word10[4][15] = {"password", "P@ssw0rd", "123456789", "rohan@2002"};
     UINT8 HashValue[hashsize + 1];
@@ -182,6 +194,7 @@ EFI_STATUS handleTest( UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix
     UINT64 totalHash=0;
 
     //  replace \n with \0
+    Print(L"formatting the file...\r\n");
     AsciiCharReplace(fBuffer, '\n', '\0');
 
     UINT64 Frequency;
@@ -199,7 +212,13 @@ EFI_STATUS handleTest( UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix
 
 
     for (i=0; i<ittr; i++){
-        while (fBuffer[buffPtr] != '\0'){
+        Print(L"progress itteration: %d  \r", i+1);
+        while (buffPtr < fileSize){
+            if (fBuffer[buffPtr] == '\0'){
+                 buffPtr++;
+                continue;
+            }
+            
             wLen = AsciiStrLen(&fBuffer[buffPtr]);
 
             HashAlgo(&(fBuffer[buffPtr]), wLen, HashValue);
@@ -207,7 +226,6 @@ EFI_STATUS handleTest( UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix
             totalHash++;
         }
         buffPtr = 0;
-        Print(L"progress itteration: %d  \r", i+1);
     }
 
     EndCycles = AsmReadTsc();
@@ -216,13 +234,17 @@ EFI_STATUS handleTest( UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix
     // 5. CALCULATE RAW DIFFERENCES
     TotalCycles = EndCycles - StartCycles;
     TotalTicks = EndTicks - StartTicks;
+    UINT64 CyclesPerHash = (TotalCycles / totalHash);
+    UINT64 HashesPerSec = 0;
+    UINT64 HashesPerUs  = 0;
 
     // 6. REPORTING AND SAFE MATH
     Print(L"\r\n--- Benchmark Results ---\r\n");
+    Print(L"Total Hashes: %lu   \r\n", totalHash);
     Print(L"Total CPU Cycles: %lu    ", TotalCycles);
     
     if (totalHash > 0) {
-        Print(L"    Speed: %lu Cycles/Hash\r\n", (TotalCycles / totalHash));
+        Print(L"    Speed: %lu Cycles/Hash\r\n", CyclesPerHash);
     }
 
     Print(L"-------------------------\r\n");
@@ -245,8 +267,8 @@ EFI_STATUS handleTest( UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix
         UINT64 TimeSec = TimeMs / 1000;
 
         // --- 2. HIGH-PRECISION RATE CALCULATIONS ---
-        UINT64 HashesPerSec = 0;
-        UINT64 HashesPerUs  = 0;
+        // UINT64 HashesPerSec = 0;
+        // UINT64 HashesPerUs  = 0;
 
         // Safety catch: Ensure we don't divide by zero if the program was unimaginably fast
         if (TotalTimeNs > 0) {
@@ -262,11 +284,206 @@ EFI_STATUS handleTest( UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix
         } else {
             Print(L"Performance:  Execution too fast to measure rate!\r\n");
         }
-    }
 
+    }
+    
+    //saving the bechmark test result to the csv file.....
+    EFI_FILE_PROTOCOL *RootDir = NULL;
+    GetActiveRootDir(&RootDir);
+    SaveBenchmarkResults( RootDir, Args_Matrix[1], Args_Matrix[2], CyclesPerHash, HashesPerSec, HashesPerUs);
+    
     if (FileBuffer != NULL) {
         FreePool(FileBuffer);
     }
 
     return EFI_SUCCESS;
+}
+
+
+EFI_STATUS handleVoidHash(UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix[No_of_Command][MaxWordLen]) {
+    if (No_of_Command != 3) {
+        Print(L"\r\nWrong command!!! Try: `help voidhash`\r\n");
+        return EFI_INVALID_PARAMETER;
+    }
+
+    EFI_STATUS Status;
+
+    Print(L"Loading Files, it may take a while...\r\n");
+
+    // loading hashfile into RAM
+    CHAR16 HashFileName[255];
+    VOID *voidHashFileBuffer = NULL;
+    UINTN HashFileSize;
+    UnicodeSPrint(HashFileName, sizeof(HashFileName), L"HashFiles\\%s", Args_Matrix[1]);
+    Status = loadFileToRam(HashFileName, &voidHashFileBuffer, &HashFileSize);
+    if (EFI_ERROR(Status)) return Status;
+    CHAR8 *HashFileBuffer = (CHAR8 *)voidHashFileBuffer;
+
+    // loading wordlist file into RAM
+    CHAR16 wordListName[255];
+    VOID *voidWordListBuffer = NULL;
+    UINTN WordlistFileSize;
+    UnicodeSPrint(wordListName, sizeof(wordListName), L"WordLists\\%s", Args_Matrix[2]);
+    Status = loadFileToRam(wordListName, &voidWordListBuffer, &WordlistFileSize);
+    if (EFI_ERROR(Status)) return Status;
+    CHAR8 *WordListBuffer = (CHAR8 *)voidWordListBuffer;
+
+    Print(L"Formatting files...\r\n");
+    AsciiCharReplace(HashFileBuffer, '\n', '\0');
+    AsciiCharReplace(WordListBuffer, '\n', '\0');
+    
+    // find MP service and get number of processors in the cpu
+    EFI_MP_SERVICES_PROTOCOL *MpServices = NULL;
+    Status = gBS->LocateProtocol(&gEfiMpServiceProtocolGuid, NULL, (VOID **)&MpServices);
+    if (EFI_ERROR(Status)) {
+        Print(L"[FATAL] Motherboard does not support MP Services!\r\n");
+        return Status;
+    }
+    UINTN NumProcessors, NumEnabledProcessors;
+    MpServices->GetNumberOfProcessors(MpServices, &NumProcessors, &NumEnabledProcessors);
+    Print(L"Detected %d Active CPU Cores. Engaging full power...\r\n\r\n", NumEnabledProcessors);
+
+    // Create the Asynchronous Event Bell 
+    EFI_EVENT ApSyncEvent;
+    gBS->CreateEvent(0, TPL_APPLICATION, NULL, NULL, &ApSyncEvent);
+
+    // creating the shared variables and allocating memories to pass to the all processors
+    AP_CRACKING_TASK *Tasks = AllocateZeroPool(sizeof(AP_CRACKING_TASK) * NumEnabledProcessors);
+    volatile BOOLEAN GlobalPasswordFound;
+    CHAR8 CrackedPassword[255];
+
+    // main loop to crack the hashes with multi processors
+    UINTN hashbuffPtr = 0;
+    BOOLEAN EFIAPI (*HashAlgo) (CONST VOID *Data, UINTN DataSize, UINT8 *HashValue);
+    UINTN HashByteSize = 0;
+    
+    while (hashbuffPtr < HashFileSize) {
+        if (HashFileBuffer[hashbuffPtr] == '\0' ){
+            hashbuffPtr++;
+            continue;
+        }
+        
+        AsciiStrStrip(&HashFileBuffer[hashbuffPtr], ' ');
+        UINTN hashLen = AsciiStrLen(&HashFileBuffer[hashbuffPtr]);
+        CHAR8 *CurrentTargetStr = &HashFileBuffer[hashbuffPtr];
+        
+        if (hashLen / 2 == MD5_DIGEST_SIZE) { HashAlgo = Md5HashAll; HashByteSize = MD5_DIGEST_SIZE; } 
+        else if (hashLen / 2 == SHA1_DIGEST_SIZE) { HashAlgo = Sha1HashAll; HashByteSize = SHA1_DIGEST_SIZE; } 
+        else if (hashLen / 2 == SHA256_DIGEST_SIZE) { HashAlgo = Sha256HashAll; HashByteSize = SHA256_DIGEST_SIZE; } 
+        else if (hashLen / 2 == SHA512_DIGEST_SIZE) { HashAlgo = Sha512HashAll; HashByteSize = SHA512_DIGEST_SIZE; } 
+        else if (hashLen / 2 == SHA384_DIGEST_SIZE) { HashAlgo = Sha384HashAll; HashByteSize = SHA384_DIGEST_SIZE; } 
+        else {
+            Print(L"Unsupported Hash Length: %a... Skipping.\r\n", CurrentTargetStr);
+            hashbuffPtr += hashLen + 1;
+            continue;
+        }
+
+        Print(L"cracking: %a\r\n", CurrentTargetStr);
+
+        // resetting variables for this specific hash
+        GlobalPasswordFound = FALSE;
+        CrackedPassword[0] = '\0';
+        UINT8 TargetBinary[64];
+        HexStringToByteArray(CurrentTargetStr, TargetBinary, HashByteSize);
+
+        // calculating the chunk of memory for each cores...
+        UINTN ChunkSize = WordlistFileSize / NumEnabledProcessors;
+        CHAR8 *ChunkCursor = WordListBuffer;
+
+        for (UINTN i = 0; i < NumEnabledProcessors; i++) {
+            Tasks[i].TargetHashBinary[0] = '\0'; // clear
+            CopyMem(Tasks[i].TargetHashBinary, TargetBinary, HashByteSize);
+            Tasks[i].HashByteSize = HashByteSize;
+            Tasks[i].HashAlgo = HashAlgo;
+            Tasks[i].GlobalPasswordFound = &GlobalPasswordFound;
+            Tasks[i].FoundPasswordDest = CrackedPassword;
+            Tasks[i].StartPtr = ChunkCursor;
+
+            // to ensure the endPtr always points to \0, (don't wanna end a word inna middle)
+            if (i == NumEnabledProcessors - 1) {
+                Tasks[i].EndPtr = WordListBuffer + WordlistFileSize;
+            } else {
+                CHAR8 *TempEnd = ChunkCursor + ChunkSize;
+                while (*TempEnd != '\0' && TempEnd < (WordListBuffer + WordlistFileSize)) TempEnd++;
+                Tasks[i].EndPtr = TempEnd;
+                ChunkCursor = TempEnd + 1;
+            }
+        }
+
+        // waking up all the APs (Cores 1 through N) asynchronously... for cracking, baby,, yeee boy.
+        MpServices->StartupAllAPs(
+            MpServices, 
+            CoreCrackingFunction, 
+            FALSE,          // SingleThread = FALSE (Wake them all)
+            ApSyncEvent,    // The asynchronous bell
+            0,              // Timeout (0 = infinite)
+            (VOID *)&Tasks[1], // Pass tasks starting at index 1
+            NULL
+        );
+
+        // 2. The BSP instantly joins the fight (Core 0)
+        CoreCrackingFunction((VOID *)&Tasks[0]);
+
+        // 3. The Synchronization Phase
+        // The manager waits until either someone finds it, or everyone naturally finishes.
+        while (GlobalPasswordFound == FALSE && gBS->CheckEvent(ApSyncEvent) == EFI_NOT_READY) {
+            // Optional: You can put AsmPause() here to lower BSP heat while checking
+        }
+
+        // Print the result!
+        if (GlobalPasswordFound) {
+            Print(L" password FOUND: %a\r\n\r\n", CrackedPassword);
+        } else {
+            Print(L" password NOT FOUND in wordlist\r\n\r\n");
+        }
+
+        // Jump to the next hash in the file
+        hashbuffPtr += hashLen + 1;
+    }
+
+    // Cleanup
+    gBS->CloseEvent(ApSyncEvent);
+    FreePool(Tasks);
+    if (voidHashFileBuffer != NULL) FreePool(voidHashFileBuffer);
+    if (voidWordListBuffer != NULL) FreePool(voidWordListBuffer);
+
+    Print(L"VoidHash Complete.\r\n");
+    return EFI_SUCCESS;
+}
+
+
+VOID EFIAPI CoreCrackingFunction(VOID *Buffer) {
+    AP_CRACKING_TASK *Task = (AP_CRACKING_TASK *)Buffer;
+    CHAR8 *CurrentWord = Task->StartPtr;
+    UINT8 GeneratedHash[64];
+    UINTN WordLen;
+
+    while (CurrentWord < Task->EndPtr) {
+        // Check the Kill Switch! If another core found the password or not, go to sleep instantly if found.
+        if (*(Task->GlobalPasswordFound) == TRUE) {
+            return; 
+        }
+
+        // empty password line in a dirty wordlist. skipping themm .
+        if (*CurrentWord == '\0') {
+            CurrentWord++;
+            continue;
+        }
+
+        WordLen = AsciiStrLen(CurrentWord);
+
+        // calling hashing algorithm, what? to generate hash off course.
+        Task->HashAlgo(CurrentWord, WordLen, GeneratedHash);
+
+        // compare if found, fast comparing with this method.. chuck chuck
+        if (CompareMem(GeneratedHash, Task->TargetHashBinary, Task->HashByteSize) == 0) {
+            // the AHA moment, gotcha!!!!
+            *(Task->GlobalPasswordFound) = TRUE;
+            AsciiStrCpyS(Task->FoundPasswordDest, 255, CurrentWord);
+            return;
+        }
+
+        // not found on to the next one...
+        CurrentWord += WordLen + 1;
+    }
 }

@@ -6,6 +6,7 @@
 #include <voidUtils.h>
 #include <Protocol/LoadedImage.h>
 #include <Guid/FileInfo.h>
+#include <Library/PrintLib.h>
 
 // to split the arguments for easiear access. 
 EFI_STATUS ArgsSplit(CHAR16 *StrInput, CHAR16 separator, UINTN row, UINTN col, CHAR16 Args_Matrix[row][col]){
@@ -129,6 +130,53 @@ EFI_STATUS StrStrip(CHAR16 *StrInput, CHAR16 C){
   return EFI_SUCCESS;
 }
 
+
+EFI_STATUS AsciiStrStrip(CHAR8 *StrInput, CHAR8 C){
+  // Some Safty checks... blah blah blah..
+  if (StrInput==NULL){
+    return EFI_INVALID_PARAMETER;;
+  }
+  UINTN lenStrInput = AsciiStrLen(StrInput);
+  if (lenStrInput==0) return EFI_SUCCESS;
+
+  UINTN i;
+  UINTN startIndex;
+  UINTN endIndex;
+
+  startIndex = 0;
+  while (StrInput[startIndex] == C && startIndex < lenStrInput){
+    startIndex ++;
+  }
+  
+  if (startIndex == lenStrInput){
+    StrInput[0] = '\0';
+    return EFI_SUCCESS;
+  }
+
+  // finding the ending index of actual string without the unwanted character
+  endIndex = lenStrInput - 1;
+  while (StrInput[endIndex] == C && endIndex > startIndex) {
+    endIndex--;
+  }
+ 
+  //update the string 
+  if (startIndex!=0){
+    for (i=0; i<=(endIndex-startIndex); i++){
+      StrInput[i] = StrInput[i + startIndex];
+    }
+  }
+
+  // terminate the string with '\0'
+  i = endIndex - startIndex + 1;
+  while (i < lenStrInput){
+    StrInput[i] = '\0';
+    i++;
+  }
+
+  return EFI_SUCCESS;
+}
+
+
 EFI_STATUS StrReplace(CHAR16 *StringInput, CHAR16 replaceChar, CHAR16 WithChar) {
   UINTN i=0;
 
@@ -144,13 +192,15 @@ EFI_STATUS StrReplace(CHAR16 *StringInput, CHAR16 replaceChar, CHAR16 WithChar) 
 
 EFI_STATUS AsciiCharReplace(CHAR8 *StringInput, CHAR8 replaceChar, CHAR8 WithChar) {
   UINTN i=0;
+  UINTN count = 0;
 
   while (StringInput[i] != '\0') {
     if (StringInput[i] == replaceChar ){
       StringInput[i] = WithChar;
+      count++;
     }
     i++;
-  } 
+  }
 
   return EFI_SUCCESS;
 }
@@ -278,7 +328,7 @@ EFI_STATUS printDirectoryContent(EFI_FILE_PROTOCOL *RootDir, CHAR16 *subDirName)
 
 
 
-EFI_STATUS loadFileToRam(CHAR16 *Path_to_file, VOID **FileBuffer) {
+EFI_STATUS loadFileToRam(CHAR16 *Path_to_file, VOID **FileBuffer, UINTN *gfileSize) {
   EFI_FILE_PROTOCOL *RootDir = NULL;
   EFI_FILE_PROTOCOL *FILE_ptr;
   EFI_STATUS Status;
@@ -308,8 +358,10 @@ EFI_STATUS loadFileToRam(CHAR16 *Path_to_file, VOID **FileBuffer) {
     Print(L"Can't allocate %d bytes of contiguous RAM!\r\n", FileSize);
     return EFI_DEVICE_ERROR;
   }
+  
 
   FILE_ptr->Read(FILE_ptr, &FileSize, *FileBuffer);
+  *gfileSize = FileSize;
   FileBuffer[ FileSize] = '\0';
   FileBuffer[ FileSize + 1] = '\0';
   // FileBuffer[ FileSize + 2] = '\0';
@@ -331,4 +383,97 @@ VOID HashToHexStr(UINT8 *HashValue, UINTN HashSize, CHAR8 *HexStr) {
     
     // Cap it off with a null terminator
     HexStr[HashSize * 2] = '\0';
+}
+
+
+VOID HexStringToByteArray(CHAR8 *HexStr, UINT8 *ByteArray, UINTN ByteCount) {
+    for (UINTN i = 0; i < ByteCount; i++) {
+        CHAR8 HighStr[2] = {HexStr[i * 2], '\0'};
+        CHAR8 LowStr[2]  = {HexStr[(i * 2) + 1], '\0'};
+        
+        UINT8 High = (UINT8)AsciiStrHexToUintn(HighStr);
+        UINT8 Low  = (UINT8)AsciiStrHexToUintn(LowStr);
+        
+        ByteArray[i] = (High << 4) | Low;
+    }
+}
+
+
+
+// Save or Append Benchmark Results to a CSV file in the Root Directory
+EFI_STATUS SaveBenchmarkResults(
+    EFI_FILE_PROTOCOL *RootDir,
+    CHAR16 *HashName,
+    CHAR16 *WordlistName,
+    UINT64 CyclesPerHash,
+    UINT64 HashesPerSec,
+    UINT64 HashesPerMicroSec
+) {
+    EFI_STATUS Status;
+    EFI_FILE_PROTOCOL *CsvFile;
+    CHAR16 *FileName = L"benchmark_results.csv";
+    CHAR8 CsvLine[512];
+    UINTN LineSize;
+
+    // 1. Attempt to open the file (Assuming it already exists)
+    Status = RootDir->Open(
+        RootDir, 
+        &CsvFile, 
+        FileName, 
+        EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE, 
+        0
+    );
+
+    // 2. If it doesn't exist, create it and write the CSV headers
+    if (EFI_ERROR(Status)) {
+        Status = RootDir->Open(
+            RootDir, 
+            &CsvFile, 
+            FileName, 
+            EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE | EFI_FILE_MODE_CREATE, 
+            EFI_FILE_ARCHIVE
+        );
+
+        if (EFI_ERROR(Status)) {
+            Print(L"Error: Could not create %s\r\n", FileName);
+            return Status;
+        }
+
+        // Write the Column Headers for a brand new file
+        CHAR8 *Header = "hashname,wordlist_Name,cycles/hash,hash/sec,hash/microSec\r\n";
+        LineSize = AsciiStrLen(Header);
+        CsvFile->Write(CsvFile, &LineSize, Header);
+    } 
+    // seek the cursor to the absolute end of the file to append
+    else {
+        // 0xFFFFFFFFFFFFFFFF is the official UEFI macro for "End of File"
+        CsvFile->SetPosition(CsvFile, 0xFFFFFFFFFFFFFFFFULL);
+    }
+
+    // 4. Format the benchmark data into an ASCII string
+    // Note: In EDK II AsciiSPrint, %s automatically converts CHAR16 Unicode down to CHAR8 Ascii!
+    LineSize = AsciiSPrint(
+        CsvLine,
+        sizeof(CsvLine),
+        "%s,%s,%lu,%lu,%lu\r\n",
+        HashName,
+        WordlistName,
+        CyclesPerHash,
+        HashesPerSec,
+        HashesPerMicroSec
+    );
+
+    // 5. Write the formatted line to the disk
+    Status = CsvFile->Write(CsvFile, &LineSize, CsvLine);
+    
+    if (EFI_ERROR(Status)) {
+        Print(L"Failed to write data to %s\r\n", FileName);
+    } else {
+        Print(L"benchmark Result saved to %s file!!!\r\n", FileName);
+    }
+
+    // 6. Close the file to flush the buffer to the physical USB drive
+    CsvFile->Close(CsvFile);
+
+    return EFI_SUCCESS;
 }
