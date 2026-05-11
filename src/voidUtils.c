@@ -476,7 +476,7 @@ EFI_STATUS saveToFile_inAppendMode(
     if (EFI_ERROR(Status)) {
         Print(L"Failed to write data to %s\r\n", FileName);
     } else {
-        Print(L"benchmark Result saved to %s file!!!\r\n", FileName);
+        Print(L"saved the results to %s file!!!\r\n", FileName);
     }
 
     // 6. Close the file to flush the buffer to the physical USB drive
