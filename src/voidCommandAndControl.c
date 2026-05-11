@@ -105,17 +105,18 @@ EFI_STATUS handleCat(UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix[N
         return EFI_SUCCESS;
     }
 
-    Print(L"\r\n here is the content of the file which loaded to RAM :\r\n\n");
+    // Print(L"\r\n here is the content of the file which loaded to RAM :\r\n\n");
     UINTN i=0;
     CHAR8 *Buffer = (CHAR8 *)FileBuffer;
     while (Buffer[i] != '\0') {
         if (Buffer[i] == '\n' ){
-            Print(L"\r\n");
+            Print(L"\r\n ");
         } else {
             Print(L"%c", (CHAR16)Buffer[i]);
         }
         i++;
     }
+    Print(L"\r\n");
 
     if (FileBuffer != NULL) {
         FreePool(FileBuffer);
