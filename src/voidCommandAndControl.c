@@ -290,10 +290,9 @@ EFI_STATUS handleTest( UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix
     //saving the bechmark test result to the csv file.....
     EFI_FILE_PROTOCOL *RootDir = NULL;
     CHAR8 lineToWrite[512];
-    UINTN LineSize;
     CHAR16 *FileName = L"benchmark_results.csv";
     CHAR8 *Header = "hashname,wordlist_Name,cycles/hash,hash/sec,hash/microSec\r\n";
-    LineSize = AsciiSPrint(lineToWrite, sizeof(lineToWrite), "%s,%s,%lu,%lu,%lu\r\n", 
+    AsciiSPrint(lineToWrite, sizeof(lineToWrite), "%s,%s,%lu,%lu,%lu\r\n", 
         Args_Matrix[1], Args_Matrix[1], CyclesPerHash, HashesPerSec, HashesPerUs );
     GetActiveRootDir(&RootDir);
     saveToFile_inAppendMode(RootDir, FileName, Header, lineToWrite);
@@ -372,12 +371,13 @@ EFI_STATUS handleVoidHash(UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Mat
         AsciiStrStrip(&HashFileBuffer[hashbuffPtr], ' ');
         UINTN hashLen = AsciiStrLen(&HashFileBuffer[hashbuffPtr]);
         CHAR8 *CurrentTargetStr = &HashFileBuffer[hashbuffPtr];
+        CHAR16 hashName[10] ;
         
-        if (hashLen / 2 == MD5_DIGEST_SIZE) { HashAlgo = Md5HashAll; HashByteSize = MD5_DIGEST_SIZE; } 
-        else if (hashLen / 2 == SHA1_DIGEST_SIZE) { HashAlgo = Sha1HashAll; HashByteSize = SHA1_DIGEST_SIZE; } 
-        else if (hashLen / 2 == SHA256_DIGEST_SIZE) { HashAlgo = Sha256HashAll; HashByteSize = SHA256_DIGEST_SIZE; } 
-        else if (hashLen / 2 == SHA512_DIGEST_SIZE) { HashAlgo = Sha512HashAll; HashByteSize = SHA512_DIGEST_SIZE; } 
-        else if (hashLen / 2 == SHA384_DIGEST_SIZE) { HashAlgo = Sha384HashAll; HashByteSize = SHA384_DIGEST_SIZE; } 
+        if (hashLen / 2 == MD5_DIGEST_SIZE) { HashAlgo = Md5HashAll; HashByteSize = MD5_DIGEST_SIZE; StrCpyS(hashName, sizeof(hashName), L"md5");} 
+        else if (hashLen / 2 == SHA1_DIGEST_SIZE) { HashAlgo = Sha1HashAll; HashByteSize = SHA1_DIGEST_SIZE; StrCpyS(hashName, sizeof(hashName), L"sha1");} 
+        else if (hashLen / 2 == SHA256_DIGEST_SIZE) { HashAlgo = Sha256HashAll; HashByteSize = SHA256_DIGEST_SIZE; StrCpyS(hashName, sizeof(hashName), L"sha256"); } 
+        else if (hashLen / 2 == SHA512_DIGEST_SIZE) { HashAlgo = Sha512HashAll; HashByteSize = SHA512_DIGEST_SIZE; StrCpyS(hashName, sizeof(hashName), L"sha512");} 
+        else if (hashLen / 2 == SHA384_DIGEST_SIZE) { HashAlgo = Sha384HashAll; HashByteSize = SHA384_DIGEST_SIZE; StrCpyS(hashName, sizeof(hashName), L"sha384"); } 
         else {
             Print(L"Unsupported Hash Length: %a... Skipping.\r\n", CurrentTargetStr);
             hashbuffPtr += hashLen + 1;
@@ -439,6 +439,16 @@ EFI_STATUS handleVoidHash(UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Mat
         // Print the result!
         if (GlobalPasswordFound) {
             Print(L" password FOUND: %a\r\n\r\n", CrackedPassword);
+
+            // saving the cracked hash to a file.
+            EFI_FILE_PROTOCOL *RootDir = NULL;
+            CHAR8 lineToWrite[1024];
+            CHAR16 *FileName = L"cracked_hashes.txt";
+            CHAR8 *Header = NULL;
+            AsciiSPrint(lineToWrite, sizeof(lineToWrite), "%s:%a:%a\r\n", 
+                hashName, CrackedPassword , CurrentTargetStr);
+            GetActiveRootDir(&RootDir);
+            saveToFile_inAppendMode(RootDir, FileName, Header, lineToWrite);
         } else {
             Print(L" password NOT FOUND in wordlist\r\n\r\n");
         }
