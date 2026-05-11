@@ -9,6 +9,7 @@
 #include <Protocol/LoadedImage.h>
 #include <Guid/FileInfo.h>
 #include <Library/PrintLib.h>
+#include <Library/UefiRuntimeServicesTableLib.h>
 
 
 #include <Library/TimerLib.h>
@@ -74,6 +75,8 @@ EFI_STATUS ExecuteCommand(UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Mat
         gST->ConOut->ClearScreen(gST->ConOut);
     } else if (StrCmp(Args_Matrix[0], L"voidhash") == 0){
         handleVoidHash(No_of_Command, MaxWordLen, Args_Matrix );
+    } else if (StrCmp(Args_Matrix[0], L"shutdown") == 0){
+        handleShutDown();
     }
     else {
         Print(L"Unknown Command: %s\r\n", Args_Matrix[0]);
@@ -629,4 +632,18 @@ VOID EFIAPI TestCoreHashingFunction(VOID *Buffer) {
             CurrentWord += WordLen + 1; // Jump to next word
         }
     }
+}
+
+
+EFI_STATUS handleShutDown(){
+
+    Print(L"shutdown the Computer");
+    gRT->ResetSystem (
+         EfiResetShutdown, 
+         EFI_SUCCESS, 
+         0, 
+         NULL
+         );
+
+    return EFI_SUCCESS;
 }
