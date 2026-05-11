@@ -10,6 +10,7 @@
   VoidHash.c
   voidUtils.c
   voidCommandAndControl.c
+  FastMD5onVoid.c
 
 [Packages]
   MdePkg/MdePkg.dec

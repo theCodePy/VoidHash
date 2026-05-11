@@ -24,6 +24,14 @@
 // the output size are defined in the librery as [HASHNAME_DIGEST_SIZE] variable e.g. [MD5_DIGEST_SIZE]
 // input data for all of them are (CONST VOID *Data, UINTN DataSize, UINT8 *HashValue)
 
+// the faster md5 hash from FastMD5onVoid.c file
+#ifndef FASTER_MD5_ON_THE_VOID
+#define FASTER_MD5_ON_THE_VOID
+
+BOOLEAN EFIAPI FastMd5HashAll(CONST VOID *Data, UINTN DataSize, UINT8 *HashValue) ;
+
+#endif
+
 // this is to wake up all the core's of cpu to crack the hash...
 #include <PiDxe.h>
 #include <Protocol/MpService.h>
@@ -76,7 +84,7 @@ EFI_STATUS ExecuteCommand(UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Mat
     } else if (StrCmp(Args_Matrix[0], L"voidhash") == 0){
         handleVoidHash(No_of_Command, MaxWordLen, Args_Matrix );
     } else if (StrCmp(Args_Matrix[0], L"shutdown") == 0){
-        handleShutDown();
+        handleShutDown(No_of_Command);
     }
     else {
         Print(L"Unknown Command: %s\r\n", Args_Matrix[0]);
@@ -86,14 +94,39 @@ EFI_STATUS ExecuteCommand(UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Mat
 }
 
 EFI_STATUS handleHelp(UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix[No_of_Command][MaxWordLen] ){
-    CHAR16 *help0 = L"\n list of commands you can use:\n\r\n  help\r\n  test\r\n  cat\r\n  ls    (to list wordlists and hash files)\r\n  voidhash    (to crack hashes)\r\n\n";
-    CHAR16 *testHelp = L" test command help:\r\n";
+    CHAR16 *help0 = L"\r\nVOIDHASH is an UEFI password bruteforcing tool\r\n"
+                    L"Developed by Rohan Maji \r\n\n"
+                    L"type `help Name` to find out more information about the command `name`\r\n\n  ";
+    CHAR16 *help1 = L"list of commands:\r\n\n  "
+                    L"help        (to view information)\r\n  ";
+    CHAR16 *help2 = L"shutdown    (to shutdown the mahchine\r\n  "
+                    L"test        (to test hash rates)\r\n  "
+                    L"cat         (print file contents)\r\n  ";
+    CHAR16 *help3 = L"ls          (to list file and directories)\r\n  "
+                    L"voidhash    (to crack hashes)\r\n  "
+                    L"clear       (to clear the screen)\r\n\n";
+
+    CHAR16 *testHelp0 = L"  test command: test <hashName> <wordlistName> <itteration>\r\n"
+                        L"      <HashName>:    choose from these available hashes [md5, sha1, sha256, sha384, sha512]\r\n";
+    CHAR16 *testHelp1 = L"      <WordlistName: only name of the existing wordlist files from `\\WordLists` directory (e.g. rockyou.txt)\r\n"
+                        L"      <itteration>:  number of itteration of the whole file (e.g. 1, 2, 3...)\r\n";
+    CHAR16 *testHelp2 = L"  the test results will be appended into `\\benchmark_results.csv` file\r\n";
+
+    CHAR16 *shutdownHelp0 = L"  shutdown: This command doesn't take any aurguments\r\n"
+                            L"  type `shutdown` to poweroff the machine\r\n";
 
     if (No_of_Command==1){
         Print(L"%s", help0);
+        Print(L"%s", help1);
+        Print(L"%s", help2);
+        Print(L"%s", help3);
     } else if (No_of_Command > 1){
         if ((StrCmp(Args_Matrix[1], L"test") == 0)){
-            Print(L"%s", testHelp);
+            Print(L"%s", testHelp0);
+            Print(L"%s", testHelp1);
+            Print(L"%s", testHelp2);
+        } else if ((StrCmp(Args_Matrix[1], L"shutdown") == 0)){
+            Print(L"%s", shutdownHelp0);
         }
 
         else {
@@ -108,9 +141,16 @@ EFI_STATUS handleLs(UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix[No
     EFI_FILE_PROTOCOL *RootDir = NULL;
 
     GetActiveRootDir(&RootDir);
-    
-    printDirectoryContent(RootDir, L"HashFiles");
-    printDirectoryContent(RootDir, L"WordLists");
+    if (No_of_Command > 1){
+        for (UINTN i=1; i<No_of_Command; i++){
+            printDirectoryContent(RootDir, Args_Matrix[i]);
+        }
+    }
+    else {
+        printDirectoryContent(RootDir, L"");
+        printDirectoryContent(RootDir, L"HashFiles");
+        printDirectoryContent(RootDir, L"WordLists");
+    }
 
     return EFI_SUCCESS;
 }
@@ -172,7 +212,7 @@ EFI_STATUS handleTest( UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix
     UINTN i; 
 
     // hash algorithm options to choose from 
-    if (StrCmp(Args_Matrix[1], L"md5") == 0) {HashAlgo = Md5HashAll ;} 
+    if (StrCmp(Args_Matrix[1], L"md5") == 0) {HashAlgo = FastMd5HashAll ;} 
     else if (StrCmp(Args_Matrix[1], L"sha1") == 0) { HashAlgo =  Sha1HashAll ; } 
     else if (StrCmp(Args_Matrix[1], L"sha256") == 0) { HashAlgo =  Sha256HashAll ;} 
     else if (StrCmp(Args_Matrix[1], L"sha512") == 0) { HashAlgo =  Sha512HashAll ;} 
@@ -365,7 +405,7 @@ EFI_STATUS handleTest( UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix
     CHAR16 *FileName = L"benchmark_results.csv";
     CHAR8 *Header = "hashname,wordlist_Name,cycles/hash,hash/sec,hash/microSec\r\n";
     AsciiSPrint(lineToWrite, sizeof(lineToWrite), "%s,%s,%lu,%lu,%lu\r\n", 
-        Args_Matrix[1], Args_Matrix[1], CyclesPerHash, HashesPerSec, HashesPerUs );
+        Args_Matrix[1], Args_Matrix[2], CyclesPerHash, HashesPerSec, HashesPerUs );
     GetActiveRootDir(&RootDir);
     saveToFile_inAppendMode(RootDir, FileName, Header, lineToWrite);
     
@@ -453,7 +493,7 @@ EFI_STATUS handleVoidHash(UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Mat
         CHAR8 *CurrentTargetStr = &HashFileBuffer[hashbuffPtr];
         CHAR16 hashName[10] ;
         
-        if (hashLen / 2 == MD5_DIGEST_SIZE) { HashAlgo = Md5HashAll; HashByteSize = MD5_DIGEST_SIZE; StrCpyS(hashName, sizeof(hashName), L"md5");} 
+        if (hashLen / 2 == MD5_DIGEST_SIZE) { HashAlgo = FastMd5HashAll; HashByteSize = MD5_DIGEST_SIZE; StrCpyS(hashName, sizeof(hashName), L"md5");} 
         else if (hashLen / 2 == SHA1_DIGEST_SIZE) { HashAlgo = Sha1HashAll; HashByteSize = SHA1_DIGEST_SIZE; StrCpyS(hashName, sizeof(hashName), L"sha1");} 
         else if (hashLen / 2 == SHA256_DIGEST_SIZE) { HashAlgo = Sha256HashAll; HashByteSize = SHA256_DIGEST_SIZE; StrCpyS(hashName, sizeof(hashName), L"sha256"); } 
         else if (hashLen / 2 == SHA512_DIGEST_SIZE) { HashAlgo = Sha512HashAll; HashByteSize = SHA512_DIGEST_SIZE; StrCpyS(hashName, sizeof(hashName), L"sha512");} 
@@ -635,7 +675,13 @@ VOID EFIAPI TestCoreHashingFunction(VOID *Buffer) {
 }
 
 
-EFI_STATUS handleShutDown(){
+EFI_STATUS handleShutDown(UINTN No_of_Command){
+
+    if (No_of_Command > 1) {
+        Print(L"Told you `shutdown` command doesn't take any aurguments\r\n");
+        Print(L"if I didn't told you before, type `help shutdown`\r\n\n");
+        return EFI_SUCCESS;
+    }
 
     Print(L"shutdown the Computer");
     gRT->ResetSystem (

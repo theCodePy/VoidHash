@@ -293,6 +293,8 @@ EFI_STATUS printDirectoryContent(EFI_FILE_PROTOCOL *RootDir, CHAR16 *subDirName)
     EFI_FILE_PROTOCOL *SubFolder;
     EFI_STATUS Status;
 
+    StrReplace(subDirName, L'/', L'\\');
+
     Status = RootDir->Open(RootDir, &SubFolder, subDirName, EFI_FILE_MODE_READ, 0);
     
     if (EFI_ERROR(Status) ) {
@@ -303,7 +305,7 @@ EFI_STATUS printDirectoryContent(EFI_FILE_PROTOCOL *RootDir, CHAR16 *subDirName)
     UINT8 Buffer[1024]; 
     UINTN BufferSize = sizeof(Buffer);
     EFI_FILE_INFO *FileInfo;
-    Print(L"\r\n /%s :\r\n",subDirName);
+    Print(L"\r\n %s :\r\n",subDirName);
     while (TRUE) {
         Status = SubFolder->Read(SubFolder, &BufferSize, Buffer);
         if (EFI_ERROR(Status) ) {
