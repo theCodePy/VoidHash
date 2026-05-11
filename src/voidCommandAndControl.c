@@ -289,8 +289,14 @@ EFI_STATUS handleTest( UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix
     
     //saving the bechmark test result to the csv file.....
     EFI_FILE_PROTOCOL *RootDir = NULL;
+    CHAR8 lineToWrite[512];
+    UINTN LineSize;
+    CHAR16 *FileName = L"benchmark_results.csv";
+    CHAR8 *Header = "hashname,wordlist_Name,cycles/hash,hash/sec,hash/microSec\r\n";
+    LineSize = AsciiSPrint(lineToWrite, sizeof(lineToWrite), "%s,%s,%lu,%lu,%lu\r\n", 
+        Args_Matrix[1], Args_Matrix[1], CyclesPerHash, HashesPerSec, HashesPerUs );
     GetActiveRootDir(&RootDir);
-    SaveBenchmarkResults( RootDir, Args_Matrix[1], Args_Matrix[2], CyclesPerHash, HashesPerSec, HashesPerUs);
+    saveToFile_inAppendMode(RootDir, FileName, Header, lineToWrite);
     
     if (FileBuffer != NULL) {
         FreePool(FileBuffer);

@@ -14,7 +14,7 @@ EFI_STATUS StrReplace(CHAR16 *StringInput, CHAR16 replaceChar, CHAR16 WithChar);
 EFI_STATUS AsciiCharReplace(CHAR8 *StringInput, CHAR8 replaceChar, CHAR8 WithChar) ;
 EFI_STATUS loadFileToRam(CHAR16 *Path_to_file, VOID **FileBuffer, UINTN *gFileSize);
 VOID HashToHexStr(UINT8 *HashValue, UINTN HashSize, CHAR8 *HexStr);
-EFI_STATUS SaveBenchmarkResults(EFI_FILE_PROTOCOL *RootDir, CHAR16 *HashName, CHAR16 *WordlistName, UINT64 CyclesPerHash, UINT64 HashesPerSec, UINT64 HashesPerMicroSec );
+EFI_STATUS saveToFile_inAppendMode(EFI_FILE_PROTOCOL *RootDir, CHAR16 *FileName, CHAR8 *header, CHAR8 *lineToWrite);
 VOID HexStringToByteArray(CHAR8 *HexStr, UINT8 *ByteArray, UINTN ByteCount) ;
 
 

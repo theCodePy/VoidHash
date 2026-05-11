@@ -401,34 +401,38 @@ VOID HexStringToByteArray(CHAR8 *HexStr, UINT8 *ByteArray, UINTN ByteCount) {
 
 
 // Save or Append Benchmark Results to a CSV file in the Root Directory
-EFI_STATUS SaveBenchmarkResults(
+EFI_STATUS saveToFile_inAppendMode(
     EFI_FILE_PROTOCOL *RootDir,
-    CHAR16 *HashName,
-    CHAR16 *WordlistName,
-    UINT64 CyclesPerHash,
-    UINT64 HashesPerSec,
-    UINT64 HashesPerMicroSec
+    CHAR16 *FileName,
+    CHAR8 *header,
+    CHAR8 *lineToWrite
+    // UINTN lineSize
+    // CHAR16 *HashName,
+    // CHAR16 *WordlistName,
+    // UINT64 CyclesPerHash,
+    // UINT64 HashesPerSec,
+    // UINT64 HashesPerMicroSec
 ) {
     EFI_STATUS Status;
-    EFI_FILE_PROTOCOL *CsvFile;
-    CHAR16 *FileName = L"benchmark_results.csv";
-    CHAR8 CsvLine[512];
+    EFI_FILE_PROTOCOL *File;
+    
+    // CHAR8 CsvLine[512];
     UINTN LineSize;
 
-    // 1. Attempt to open the file (Assuming it already exists)
+    // Attempt to open the file
     Status = RootDir->Open(
         RootDir, 
-        &CsvFile, 
+        &File, 
         FileName, 
         EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE, 
         0
     );
 
-    // 2. If it doesn't exist, create it and write the CSV headers
+    // If it doesn't exist, create it and write header if any
     if (EFI_ERROR(Status)) {
         Status = RootDir->Open(
             RootDir, 
-            &CsvFile, 
+            &File, 
             FileName, 
             EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE | EFI_FILE_MODE_CREATE, 
             EFI_FILE_ARCHIVE
@@ -439,32 +443,35 @@ EFI_STATUS SaveBenchmarkResults(
             return Status;
         }
 
-        // Write the Column Headers for a brand new file
-        CHAR8 *Header = "hashname,wordlist_Name,cycles/hash,hash/sec,hash/microSec\r\n";
-        LineSize = AsciiStrLen(Header);
-        CsvFile->Write(CsvFile, &LineSize, Header);
+        // write header if not null
+        if (header != NULL){
+          // CHAR8 *Header = "hashname,wordlist_Name,cycles/hash,hash/sec,hash/microSec\r\n";
+          LineSize = AsciiStrLen(header);
+          File->Write(File, &LineSize, header);
+        }
     } 
     // seek the cursor to the absolute end of the file to append
     else {
         // 0xFFFFFFFFFFFFFFFF is the official UEFI macro for "End of File"
-        CsvFile->SetPosition(CsvFile, 0xFFFFFFFFFFFFFFFFULL);
+        File->SetPosition(File, 0xFFFFFFFFFFFFFFFFULL);
     }
 
     // 4. Format the benchmark data into an ASCII string
     // Note: In EDK II AsciiSPrint, %s automatically converts CHAR16 Unicode down to CHAR8 Ascii!
-    LineSize = AsciiSPrint(
-        CsvLine,
-        sizeof(CsvLine),
-        "%s,%s,%lu,%lu,%lu\r\n",
-        HashName,
-        WordlistName,
-        CyclesPerHash,
-        HashesPerSec,
-        HashesPerMicroSec
-    );
+    // LineSize = AsciiSPrint(
+    //     CsvLine,
+    //     sizeof(CsvLine),
+    //     "%s,%s,%lu,%lu,%lu\r\n",
+    //     HashName,
+    //     WordlistName,
+    //     CyclesPerHash,
+    //     HashesPerSec,
+    //     HashesPerMicroSec
+    // );
 
     // 5. Write the formatted line to the disk
-    Status = CsvFile->Write(CsvFile, &LineSize, CsvLine);
+    LineSize = AsciiStrLen(lineToWrite);
+    Status = File->Write(File, &LineSize, lineToWrite);
     
     if (EFI_ERROR(Status)) {
         Print(L"Failed to write data to %s\r\n", FileName);
@@ -473,7 +480,7 @@ EFI_STATUS SaveBenchmarkResults(
     }
 
     // 6. Close the file to flush the buffer to the physical USB drive
-    CsvFile->Close(CsvFile);
+    File->Close(File);
 
     return EFI_SUCCESS;
 }
