@@ -95,4 +95,4 @@ qemu-system-x86_64 -bios ~/VoidHash/bios64.bin -drive format=raw,file=fat:rw:$HO
 
 cp ~/projects/edk2/Build/MdeModule/DEBUG_GCC/X64/VoidHash.efi ~/projects/VoidHash/uefi-drive/VoidHash.efi
 cp ~/projects/VoidHash/uefi-drive/VoidHash.efi ~/projects/VoidHash/uefi-drive/EFI/BOOT/BOOTX64.EFI
-qemu-system-x86_64 -bios ~/projects/VoidHash/bios64.bin -drive format=raw,file=fat:rw:$HOME/projects/VoidHash/uefi-drive -net none
+qemu-system-x86_64 -bios ~/projects/VoidHash/bios64.bin -drive format=raw,file=fat:rw:$HOME/projects/VoidHash/uefi-drive -net none -m 2048
