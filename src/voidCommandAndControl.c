@@ -106,14 +106,31 @@ EFI_STATUS handleHelp(UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix[
                     L"voidhash    (to crack hashes)\r\n  "
                     L"clear       (to clear the screen)\r\n\n";
 
-    CHAR16 *testHelp0 = L"  test command: test <hashName> <wordlistName> <itteration>\r\n"
-                        L"      <HashName>:    choose from these available hashes [md5, sha1, sha256, sha384, sha512]\r\n";
-    CHAR16 *testHelp1 = L"      <WordlistName: only name of the existing wordlist files from `\\WordLists` directory (e.g. rockyou.txt)\r\n"
-                        L"      <itteration>:  number of itteration of the whole file (e.g. 1, 2, 3...)\r\n";
-    CHAR16 *testHelp2 = L"  the test results will be appended into `\\benchmark_results.csv` file\r\n";
+    CHAR16 *testHelp0 = L"   test command: test <hashName> <wordlistName> <itteration>\r\n"
+                        L"      <HashName>:     choose from these available hashes [md5, sha1, sha256, sha384, sha512]\r\n";
+    CHAR16 *testHelp1 = L"      <WordlistName:  only name of the existing wordlist files from `\\WordLists` directory (e.g. rockyou.txt)\r\n"
+                        L"      <itteration>:   number of itteration of the whole file (e.g. 1, 2, 3...)\r\n";
+    CHAR16 *testHelp2 = L"   the test results will be appended into `\\benchmark_results.csv` file\r\n";
 
     CHAR16 *shutdownHelp0 = L"  shutdown: This command doesn't take any aurguments\r\n"
                             L"  type `shutdown` to poweroff the machine\r\n";
+    CHAR16 *catHelp0 = L"   cat command: cat <path_to_file>\r\n"
+                       L"      <path_to_file>: full path of the file (e.g. WordLists/rockyou.txt)\r\n";
+
+    CHAR16 *lsHelp = L"   ls: ls [directory]    (to print the list of files and folders in a directory)\r\n"
+                     L"      [directory]:       the directory name aurgument is optional\r\n";
+
+    CHAR16 *voidhashHelp0 = L"   voidhash:  voidhash <hashfileName> <wordListName>\r\n"
+                            L"      <hashFileName>:    name of the hashfile from `HashFiles` directory by default\r\n";
+    CHAR16 *voidhashHelp1 = L"                         `hashfileName` will be taken from `HashFiles\\` directory\r\n"
+                            L"                         to bypass this use '..'\r\n";
+    CHAR16 *voidhashHelp2 = L"      <wordListName>:    only existing wordlist name from `WordLists` directory\r\n"
+                            L"                         (e.g. rockyou.txt). to bypass this default directory strategy\r\n";
+    CHAR16 *voidhashHelp3 = L"                         use directory traversal '../'\r\n";
+
+    CHAR16 *clearHelp = L"   clear: clear [this command takes no aurgument]\r\n"
+                        L"          to clear the screen\r\n";
+
 
     if (No_of_Command==1){
         Print(L"%s", help0);
@@ -127,7 +144,18 @@ EFI_STATUS handleHelp(UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix[
             Print(L"%s", testHelp2);
         } else if ((StrCmp(Args_Matrix[1], L"shutdown") == 0)){
             Print(L"%s", shutdownHelp0);
-        }
+        } else if ((StrCmp(Args_Matrix[1], L"cat") == 0)){
+            Print(L"%s", catHelp0);
+        } else if ((StrCmp(Args_Matrix[1], L"ls") == 0)){
+            Print(L"%s", lsHelp);
+        } else if ((StrCmp(Args_Matrix[1], L"voidhash") == 0)){
+            Print(L"%s", voidhashHelp0);
+            Print(L"%s", voidhashHelp1);
+            Print(L"%s", voidhashHelp2);
+            Print(L"%s", voidhashHelp3);
+        } else if ((StrCmp(Args_Matrix[1], L"clear") == 0)){
+            Print(L"%s", clearHelp);
+        } 
 
         else {
             Print(L"Can't Help with Unknown Command: %s\r\n", Args_Matrix[1]);
@@ -147,7 +175,7 @@ EFI_STATUS handleLs(UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix[No
         }
     }
     else {
-        printDirectoryContent(RootDir, L"");
+        printDirectoryContent(RootDir, L"\\");
         printDirectoryContent(RootDir, L"HashFiles");
         printDirectoryContent(RootDir, L"WordLists");
     }

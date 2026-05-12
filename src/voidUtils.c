@@ -305,11 +305,25 @@ EFI_STATUS printDirectoryContent(EFI_FILE_PROTOCOL *RootDir, CHAR16 *subDirName)
     UINT8 Buffer[1024]; 
     UINTN BufferSize = sizeof(Buffer);
     EFI_FILE_INFO *FileInfo;
+
+    Status = SubFolder->GetInfo(SubFolder, &gEfiFileInfoGuid, &BufferSize, Buffer);
+    if (EFI_ERROR(Status) ) {
+        Print(L"Something went wrong: Can't get file info `%s`\r\n\n", subDirName);
+        return EFI_DEVICE_ERROR;
+    }
+    FileInfo = (EFI_FILE_INFO *)Buffer;
+    if (FileInfo->Attribute != EFI_FILE_DIRECTORY && FileInfo->Attribute != 48){
+      Print(L"  %s not Directory    |  FileSize=%d  | FileAttribute=%d\r\n", subDirName, FileInfo->FileSize, FileInfo->Attribute);
+      return EFI_NOT_FOUND;
+    }
+
+    BufferSize = sizeof(Buffer);
+
     Print(L"\r\n %s :\r\n",subDirName);
     while (TRUE) {
         Status = SubFolder->Read(SubFolder, &BufferSize, Buffer);
         if (EFI_ERROR(Status) ) {
-            Print(L"Can't Read the folder /%s\r\n\n", subDirName);
+            Print(L"Can't Read the folder %s\r\n\n", subDirName);
             return EFI_SUCCESS;
         }
         if ((Status==EFI_SUCCESS) && (BufferSize==0)){
@@ -353,6 +367,10 @@ EFI_STATUS loadFileToRam(CHAR16 *Path_to_file, VOID **FileBuffer, UINTN *gfileSi
       return EFI_DEVICE_ERROR;
   }
   FileInfo = (EFI_FILE_INFO *)Buffer;
+  if (FileInfo->Attribute == EFI_FILE_DIRECTORY){
+    Print(L"  %s is a Directory !!! \r\n", Path_to_file);
+    return EFI_NOT_FOUND;
+  }
   FileSize = FileInfo->FileSize;
   *FileBuffer = AllocateZeroPool(FileSize + 3);
 
