@@ -63,6 +63,15 @@ typedef struct {
   CHAR16    FileName[];       // The name of the file!
 } EFI_FILE_INFO;
 
+/ File Attribute Bits
+//******************************************
+#define EFI_FILE_READ_ONLY 0x0000000000000001
+#define EFI_FILE_HIDDEN 0x0000000000000002
+#define EFI_FILE_SYSTEM 0x0000000000000004
+#define EFI_FILE_RESERVED 0x0000000000000008
+#define EFI_FILE_DIRECTORY 0x0000000000000010
+#define EFI_FILE_ARCHIVE 0x0000000000000020
+#define EFI_FILE_VALID_ATTR 0x0000000000000037
 
 `Read() Prototype`
 Status = RootDir->Read(
@@ -92,3 +101,5 @@ EFI_NOT_FOUND: A file, protocol, or data wasn't located.
 EFI_BUFFER_TOO_SMALL: The provided buffer isn't big enough for the output.
 EFI_DEVICE_ERROR: Something went wrong with the hardware.
 EFI_UNSUPPORTED: The requested operation isn't implemented.
+
+

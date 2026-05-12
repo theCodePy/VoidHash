@@ -64,6 +64,19 @@ ACTIVE_PLATFORM       = MdeModulePkg/MdeModulePkg.dsc
 TARGET_ARCH = X64
 TOOL_CHAIN_TAG = GCC
 
+
+`vim ~/edk2/Conf/tools_def.txt`
+`change this:`
+DEFINE GCC_ALL_CC_COMMON                = -g -Os -fshort-wchar -fno-builtin -fno-strict-aliasing -Wall -Werror -Wno-array-bounds -include AutoGen.h -fno-common -fstack-protector
+`to this:`
+DEFINE GCC_ALL_CC_COMMON                = -g -O3 -fshort-wchar -fno-builtin -fno-strict-aliasing -Wall -Werror -Wno-array-bounds -include AutoGen.h -fno-common -fstack-protector
+
+change this:
+RELEASE_GCC_X64_DLINK_FLAGS     = DEF(GCC_X64_DLINK_FLAGS) -flto -Os -z common-page-size=0x1000
+tothis:
+RELEASE_GCC_X64_DLINK_FLAGS     = DEF(GCC_X64_DLINK_FLAGS) -flto -O3 -z common-page-size=0x1000
+
+
 `changes in MdeModulePkg.dsc file`
 add the application .inf file to [component] section of MdeModulePkg.dsc
 [BuildOptions]
@@ -76,7 +89,7 @@ add the application .inf file to [component] section of MdeModulePkg.dsc
   OpensslLib|CryptoPkg/Library/OpensslLib/OpensslLib.inf
   IntrinsicLib|CryptoPkg/Library/IntrinsicLib/IntrinsicLib.inf
   RngLib|MdeModulePkg/Library/BaseRngLibTimerLib/BaseRngLibTimerLib.inf
-
+  
 
 
 
@@ -92,12 +105,16 @@ cp ~/edk2/Build/MdeModule/DEBUG_GCC/X64/VoidHash.efi ~/uefi-drive/VoidHash.efi
 cp ~/uefi-drive/VoidHash.efi ~/uefi-drive/EFI/BOOT/BOOTX64.EFI
 qemu-system-x86_64 -bios ~/VoidHash/bios64.bin -drive format=raw,file=fat:rw:$HOME/uefi-drive -net none
 
-
+`DEBUG MODE`
 cp ~/projects/edk2/Build/MdeModule/DEBUG_GCC/X64/VoidHash.efi ~/projects/VoidHash/uefi-drive/VoidHash.efi
 cp ~/projects/VoidHash/uefi-drive/VoidHash.efi ~/projects/VoidHash/uefi-drive/EFI/BOOT/BOOTX64.EFI
 qemu-system-x86_64 -bios ~/projects/VoidHash/bios64.bin -drive format=raw,file=fat:rw:$HOME/projects/VoidHash/uefi-drive -net none -m 2048
 
 
+`RELEASE MODE`
+cp ~/projects/edk2/Build/MdeModule/RELEASE_GCC/X64/VoidHash.efi ~/projects/VoidHash/uefi-drive/VoidHash.efi
+cp ~/projects/VoidHash/uefi-drive/VoidHash.efi ~/projects/VoidHash/uefi-drive/EFI/BOOT/BOOTX64.EFI
+qemu-system-x86_64 -bios ~/projects/VoidHash/bios64.bin -drive format=raw,file=fat:rw:$HOME/projects/VoidHash/uefi-drive -net none -m 2048
 
 
 
