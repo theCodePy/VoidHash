@@ -10,7 +10,7 @@
 #include <Guid/FileInfo.h>
 #include <Library/PrintLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
-
+#include <Protocol/Timestamp.h>
 
 #include <Library/TimerLib.h>
 
@@ -286,7 +286,7 @@ EFI_STATUS handleTest( UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix
     EFI_MP_SERVICES_PROTOCOL *MpServices = NULL;
     Status = gBS->LocateProtocol(&gEfiMpServiceProtocolGuid, NULL, (VOID **)&MpServices);
     if (EFI_ERROR(Status)) {
-        Print(L"[!] Fatal: Multiprocessor Protocol missing!\r\n");
+        Print(L"Fatal: Multiprocessor Protocol missing!\r\n");
         if (FileBuffer != NULL) FreePool(FileBuffer);
         return Status;
     }
@@ -325,12 +325,29 @@ EFI_STATUS handleTest( UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix
     UINT64 EndTicks, EndCycles;
     UINT64 TotalTicks, TotalCycles;
     
-    // query the Motherboard for the Timer Frequency
-    // If running in QEMU, this will likely return 0.
-    Frequency = GetPerformanceCounterProperties(NULL, NULL);
+    // --- NATIVE HARDWARE FREQUENCY CALIBRATION ---
+    // Print(L"Calibrating CPU Frequency... (Please wait 1 second)\r\n");
+    
+    // Frequency = GetPerformanceCounterProperties(NULL, NULL);
+    // StartTicks = GetPerformanceCounter();
+    EFI_STATUS TMStatus;
+    EFI_TIMESTAMP_PROTOCOL *TimestampProtocol = NULL;
+    TMStatus = gBS->LocateProtocol(&gEfiTimestampProtocolGuid, NULL, (VOID **)&TimestampProtocol);
+    
+    if (EFI_ERROR(TMStatus)) {
+        Print(L"Fatal: Timestamp Protocol missing. firmware is severely broken.\r\n");
+        // if (FileBuffer != NULL) FreePool(FileBuffer);
+        // return Status;
+    } else {
+        // Get the exact, reliable frequency from the motherboard BIOS
+        EFI_TIMESTAMP_PROPERTIES TimestampProps;
+        TimestampProtocol->GetProperties(&TimestampProps);
+        Frequency = TimestampProps.Frequency;
 
-    // start the clocks. what's the time?
-    StartTicks = GetPerformanceCounter();
+        Print(L"Motherboard Clock Detected: %lu Hz\r\n", Frequency);
+        StartTicks = TimestampProtocol->GetTimestamp();
+    }
+
     StartCycles = AsmReadTsc();
 
     // initialize the payload
@@ -358,8 +375,9 @@ EFI_STATUS handleTest( UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix
     }
 
     // stop clocks
+    if (!EFI_ERROR(TMStatus)) EndTicks = TimestampProtocol->GetTimestamp();
     EndCycles = AsmReadTsc();
-    EndTicks = GetPerformanceCounter();
+    // EndTicks = GetPerformanceCounter();
 
     // Sum up all the hashes processed by every core
     totalHash = 0;
@@ -369,7 +387,9 @@ EFI_STATUS handleTest( UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix
 
     // 5. CALCULATE RAW DIFFERENCES
     TotalCycles = EndCycles - StartCycles;
-    TotalTicks = EndTicks - StartTicks;
+    if (!EFI_ERROR(TMStatus))
+        TotalTicks = EndTicks - StartTicks;
+    // TotalTicks = TotalCycles;
     UINT64 CyclesPerHash = 0;
     if (totalHash > 0) {
         CyclesPerHash = (TotalCycles / totalHash);
@@ -382,6 +402,7 @@ EFI_STATUS handleTest( UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix
     Print(L"\r\n--- Benchmark Results ---\r\n");
     Print(L"Total Hashes: %lu   \r\n", totalHash);
     Print(L"Total CPU Cycles: %lu    ", TotalCycles);
+    Print(L"Total ticks: %lu    ", TotalTicks);
     
     if (totalHash > 0) {
         Print(L"    Speed: %lu Cycles/Hash\r\n", CyclesPerHash);
@@ -390,7 +411,7 @@ EFI_STATUS handleTest( UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix
     Print(L"-------------------------\r\n");
 
     // 7. THE SAFETY VALVE (Preventing the Divide-by-Zero crash)
-    if (Frequency == 0) {
+    if (Frequency == 0 || EFI_ERROR(TMStatus)) {
         Print(L"[!] Unable to get base clock speed, might be running on a VM??\r\n");
         Print(L"[!] Skipping time calculation\r\n");
     } else {
@@ -412,8 +433,11 @@ EFI_STATUS handleTest( UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix
 
         // Safety catch: Ensure we don't divide by zero if the program was unimaginably fast
         if (TotalTimeNs > 0) {
-            HashesPerSec = (totalHash * 1000000000ULL) / TotalTimeNs;
-            HashesPerUs  = (totalHash * 1000000ULL) / TotalTimeNs;
+            HashesPerSec = (totalHash * Frequency) / TotalTicks;
+            HashesPerUs  = HashesPerSec / 1000000ULL;
+        } else {
+            HashesPerSec = 0;
+            HashesPerUs  = 0;
         }
 
         // --- 3. THE FINAL PRINTOUT ---

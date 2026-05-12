@@ -20,6 +20,8 @@
 [Protocols]
   gEfiLoadedImageProtocolGuid
   gEfiSimpleFileSystemProtocolGuid
+  gEfiMpServiceProtocolGuid
+  gEfiTimestampProtocolGuid
 
 [Guids]
   gEfiFileInfoGuid
