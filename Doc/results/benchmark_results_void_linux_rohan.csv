@@ -1,0 +1,16 @@
+hashname,wordlist_Name,cycles/hash,hash/sec,hash/mili-sec
+md5,1M-number.txt,271,12187788,12187
+md5,10M-number.txt,245,13493487,13493
+md5,rockyou.txt,281,11759233,11759
+sha1,1M-number.txt,454,7291601,7291
+sha1,10M-number.txt,436,7591670,7591
+sha1,rockyou.txt,472,7014101,7014
+sha256,1M-number.txt,731,4527406,4527
+sha256,10M-number.txt,708,4674198,4674
+sha384,1M-number.txt,977,3388183,3388
+sha256,rockyou.txt,742,4461122,4461
+sha384,10M-number.txt,928,3567998,3567
+sha384,rockyou.txt,981,3374477,3374
+sha512,1M-number.txt,979,3379953,3379
+sha512,10M-number.txt,929,3564538,3564
+sha512,rockyou.txt,982,3372063,3372

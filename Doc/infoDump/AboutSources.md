@@ -13,3 +13,17 @@ Title: Beyond BIOS: Developing with the Unified Extensible Firmware Interface
 Authors: Vincent Zimmer, Michael Rothman, Suresh Marisetty (Intel Engineers).
 Note: You should absolutely cite this book in your thesis. It explains the exact Boot Sequence diagram we discussed earlier in deep technical detail.
 
+
+Network Working Group                                          R. Rivest
+Request for Comments: 1321           MIT Laboratory for Computer Science
+                                             and RSA Data Security, Inc.
+                                                              April 1992
+                     The MD5 Message-Digest Algorithm
+
+
+FIPS PUB 180-4 
+FEDERAL INFORMATION PROCESSING STANDARDS 
+PUBLICATION 
+Secure Hash Standard (SHS) 
+CATEGORY:  COMPUTER SECURITY SUBCATEGORY:  CRYPTOGRAPHY 
+Information Technology Laboratory National Institute of Standards and Technology

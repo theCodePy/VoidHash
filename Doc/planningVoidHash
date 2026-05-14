@@ -2,17 +2,18 @@ edk2/MdeModulePkg/Application/VoidHash/
 VoidHash/
 ├── VoidHash.inf      (The build configuration/Makefile for EDK II)
 ├── VoidHash.c        (The main entry point and UEFI system interaction)
-├── FileIO.c          (Logic for reading target hashes from the USB drive)
-├── FileIO.h          (Header definitions for FileIO)
-├── CryptoEngine.c    (The raw MD5 or SHA-256 mathematical algorithms)
-├── CryptoEngine.h    (Header definitions for the algorithms)
+|── voidCommandAndControl.c
+|── voidCommandAndControl.h
+|── voidUtils.c
+|── voidUtils.h
+|── FastMD5Void.c
 └── Permutation.c     (The logic that generates aaaa, aaab, aaac...)
 
 ~/projects/
 ├── edk2/MdeModulePkg/Application/VoidHash     <-- symbolic link to "VoidHash/src"
 └── VoidHash/                  <-- (YOUR actual GitHub repository)
     ├── Docs/                  <-- (All your PDFs go here)
-    ├── Notes/                 <-- (Your Markdown files)
+    |── uefi-drive             <-- the fake drive                 
     ├── ovmf.fd                <-- (The QEMU firmware)
     └── Src/                   <-- (Your VoidHash.c and VoidHash.inf go here)
 
