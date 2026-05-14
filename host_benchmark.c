@@ -339,11 +339,11 @@ int main(int argc, char *argv[]) {
     uint64_t TimeSec = TimeMs / 1000;
 
     uint64_t HashesPerSec = 0;
-    uint64_t HashesPerUs  = 0;
+    uint64_t HashesPerMs  = 0;
 
     if (TotalTimeNs > 0) {
         HashesPerSec = (totalHash * 1000000000ULL) / TotalTimeNs;
-        HashesPerUs  = (totalHash * 1000000ULL) / TotalTimeNs;
+        HashesPerMs  = (totalHash * 1000000ULL) / TotalTimeNs;
     }
 
     // --- REPORTING ---
@@ -359,7 +359,7 @@ int main(int argc, char *argv[]) {
     printf("Time Elapsed: %lu sec | %lu ms | %lu us | %lu ns\n", TimeSec, TimeMs, TimeUs, TotalTimeNs);
     
     if (TotalTimeNs > 0) {
-        printf("Performance:  %lu Hash/Sec  |  %lu Hash/us\n", HashesPerSec, HashesPerUs);
+        printf("Performance:  %lu Hash/Sec  |  %lu Hash/ms\n", HashesPerSec, HashesPerMs);
     } else {
         printf("Performance:  Execution too fast to measure rate!\n");
     }
@@ -370,16 +370,16 @@ int main(int argc, char *argv[]) {
         // If file is empty/new, write headers
         fseek(csv, 0, SEEK_END);
         if (ftell(csv) == 0) {
-            fprintf(csv, "hashname,wordlist_Name,cycles/hash,hash/sec,hash/microSec\n");
+            fprintf(csv, "hashname,wordlist_Name,cycles/hash,hash/sec,hash/Mili-Sec\n");
         }
         
         fprintf(csv, "%s,%s,%lu,%lu,%lu\n", 
-            hashAlgoStr, wordListName, CyclesPerHash, HashesPerSec, HashesPerUs);
+            hashAlgoStr, wordListName, CyclesPerHash, HashesPerSec, HashesPerMs);
         
         fclose(csv);
-        printf("[*] Results appended to benchmark_results_os.csv successfully!\n");
+        printf("Results appended to benchmark_results_os.csv successfully!\n");
     } else {
-        printf("[!] Failed to save CSV results.\n");
+        printf("Failed to save CSV results.\n");
     }
 
     // Cleanup
