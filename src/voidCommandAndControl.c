@@ -320,35 +320,60 @@ EFI_STATUS handleTest( UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix
 
     Print(L"Benchmarking across %d Active CPU Cores...\r\n", NumEnabledProcessors);
 
-    UINT64 Frequency;
-    UINT64 StartTicks, StartCycles;
-    UINT64 EndTicks, EndCycles;
-    UINT64 TotalTicks, TotalCycles;
+    // UINT64 Frequency;
+    // UINT64 StartTicks, StartCycles;
+    // UINT64 EndTicks, EndCycles;
+    // UINT64 TotalTicks, TotalCycles;
     
     // --- NATIVE HARDWARE FREQUENCY CALIBRATION ---
     // Print(L"Calibrating CPU Frequency... (Please wait 1 second)\r\n");
     
     // Frequency = GetPerformanceCounterProperties(NULL, NULL);
     // StartTicks = GetPerformanceCounter();
-    EFI_STATUS TMStatus;
+    // --- THE ACPI-TO-TSC CALIBRATOR ---
     EFI_TIMESTAMP_PROTOCOL *TimestampProtocol = NULL;
-    TMStatus = gBS->LocateProtocol(&gEfiTimestampProtocolGuid, NULL, (VOID **)&TimestampProtocol);
+    EFI_STATUS TMStatus = gBS->LocateProtocol(&gEfiTimestampProtocolGuid, NULL, (VOID **)&TimestampProtocol);
+    UINT64 TscFrequency = 0;
     
     if (EFI_ERROR(TMStatus)) {
-        Print(L"Fatal: Timestamp Protocol missing. firmware is severely broken.\r\n");
-        // if (FileBuffer != NULL) FreePool(FileBuffer);
-        // return Status;
+        Print(L"Fatal: Timestamp Protocol missing. Your firmware is severely broken.\r\n");
     } else {
-        // Get the exact, reliable frequency from the motherboard BIOS
         EFI_TIMESTAMP_PROPERTIES TimestampProps;
         TimestampProtocol->GetProperties(&TimestampProps);
-        Frequency = TimestampProps.Frequency;
+        UINT64 AcpiFreq = TimestampProps.Frequency;
 
-        Print(L"Motherboard Clock Detected: %lu Hz\r\n", Frequency);
-        StartTicks = TimestampProtocol->GetTimestamp();
+        Print(L"Calibrating bare-metal CPU clock... (0.1s)\r\n");
+        UINT64 AcpiStart, AcpiEnd;
+        UINT64 TscStartCalib, TscEndCalib;
+        UINT64 TargetTicks = AcpiFreq / 10; // Exactly 0.1 seconds
+        BOOLEAN CalibrationDone = FALSE;
+
+        // Run the calibration loop. If the 24-bit timer wraps, restart the 0.1s measurement.
+        while (!CalibrationDone) {
+            AcpiStart = TimestampProtocol->GetTimestamp();
+            TscStartCalib = AsmReadTsc();
+            
+            while (TRUE) {
+                AcpiEnd = TimestampProtocol->GetTimestamp();
+                
+                if (AcpiEnd < AcpiStart) {
+                    break; // A hardware wrap occurred! Break the inner loop and restart calibration.
+                }
+                if ((AcpiEnd - AcpiStart) >= TargetTicks) {
+                    TscEndCalib = AsmReadTsc();
+                    CalibrationDone = TRUE; // Success!
+                    break;
+                }
+            }
+        }
+        
+        // Accurately cross-multiply to find 1 full second of TSC cycles
+        TscFrequency = ((TscEndCalib - TscStartCalib) * AcpiFreq) / (AcpiEnd - AcpiStart);
+        Print(L"Calibrated Silicon Engine Speed: %lu Hz\r\n", TscFrequency);
     }
 
-    StartCycles = AsmReadTsc();
+    // --- START THE BENCHMARK ---
+    UINT64 StartCycles = AsmReadTsc();
 
     // initialize the payload
     MP_TEST_PAYLOAD Payload;
@@ -362,7 +387,7 @@ EFI_STATUS handleTest( UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix
         FALSE, 
         ApSyncEvent, 
         0, 
-        (VOID *)&Payload, // Broadcast the entire payload to everyone
+        (VOID *)&Payload, 
         NULL
     );
 
@@ -374,10 +399,9 @@ EFI_STATUS handleTest( UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix
         while (gBS->CheckEvent(ApSyncEvent) == EFI_NOT_READY) {}
     }
 
-    // stop clocks
-    if (!EFI_ERROR(TMStatus)) EndTicks = TimestampProtocol->GetTimestamp();
-    EndCycles = AsmReadTsc();
-    // EndTicks = GetPerformanceCounter();
+    // --- STOP THE BENCHMARK ---
+    UINT64 EndCycles = AsmReadTsc();
+    UINT64 TotalCycles = EndCycles - StartCycles;
 
     // Sum up all the hashes processed by every core
     totalHash = 0;
@@ -385,24 +409,19 @@ EFI_STATUS handleTest( UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix
         totalHash += Tasks[i].HashesComputed;
     }
 
-    // 5. CALCULATE RAW DIFFERENCES
-    TotalCycles = EndCycles - StartCycles;
-    if (!EFI_ERROR(TMStatus))
-        TotalTicks = EndTicks - StartTicks;
-    // TotalTicks = TotalCycles;
     UINT64 CyclesPerHash = 0;
     if (totalHash > 0) {
         CyclesPerHash = (TotalCycles / totalHash);
     }
     
     UINT64 HashesPerSec = 0;
-    UINT64 HashesPerUs  = 0;
+    // UINT64 HashesPerUs  = 0;
+    UINT64 HashesPerMs  = 0;
 
-    // 6. REPORTING AND SAFE MATH
+    // --- REPORTING AND SAFE MATH ---
     Print(L"\r\n--- Benchmark Results ---\r\n");
     Print(L"Total Hashes: %lu   \r\n", totalHash);
     Print(L"Total CPU Cycles: %lu    ", TotalCycles);
-    Print(L"Total ticks: %lu    ", TotalTicks);
     
     if (totalHash > 0) {
         Print(L"    Speed: %lu Cycles/Hash\r\n", CyclesPerHash);
@@ -410,54 +429,45 @@ EFI_STATUS handleTest( UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix
 
     Print(L"-------------------------\r\n");
 
-    // 7. THE SAFETY VALVE (Preventing the Divide-by-Zero crash)
-    if (Frequency == 0 || EFI_ERROR(TMStatus)) {
-        Print(L"[!] Unable to get base clock speed, might be running on a VM??\r\n");
-        Print(L"[!] Skipping time calculation\r\n");
+    if (TscFrequency == 0 || EFI_ERROR(TMStatus)) {
+        Print(L"Skipping time calculation\r\n");
     } else {
-        // --- 1. SAFE NANOSECOND CALCULATION (Prevents 6-second overflow) ---
-        UINT64 SecondsFull     = TotalTicks / Frequency;
-        UINT64 RemainderTicks  = TotalTicks % Frequency;
+        // --- 1. SAFE NANOSECOND CALCULATION ---
+        // By dividing first, we prevent 64-bit multiplication overflow on long benchmarks!
+        UINT64 SecondsFull     = TotalCycles / TscFrequency;
+        UINT64 RemainderCycles = TotalCycles % TscFrequency;
         
-        // Calculate nanoseconds safely
-        UINT64 TotalTimeNs = (SecondsFull * 1000000000ULL) + ((RemainderTicks * 1000000000ULL) / Frequency);
+        UINT64 TotalTimeNs = (SecondsFull * 1000000000ULL) + ((RemainderCycles * 1000000000ULL) / TscFrequency);
         
-        // Convert to human-readable formats
         UINT64 TimeUs  = TotalTimeNs / 1000;
         UINT64 TimeMs  = TimeUs / 1000;
         UINT64 TimeSec = TimeMs / 1000;
 
-        // --- 2. HIGH-PRECISION RATE CALCULATIONS ---
-        // UINT64 HashesPerSec = 0;
-        // UINT64 HashesPerUs  = 0;
-
-        // Safety catch: Ensure we don't divide by zero if the program was unimaginably fast
-        if (TotalTimeNs > 0) {
-            HashesPerSec = (totalHash * Frequency) / TotalTicks;
-            HashesPerUs  = HashesPerSec / 1000000ULL;
-        } else {
-            HashesPerSec = 0;
-            HashesPerUs  = 0;
+        // --- 2. RATE CALCULATIONS ---
+        if (TotalCycles > 0) {
+            // Formula: (TotalHashes * EngineFrequency) / TotalCycles
+            HashesPerSec = (totalHash * TscFrequency) / TotalCycles;
+            // HashesPerUs  = HashesPerSec / 1000000ULL;
+            HashesPerMs  = HashesPerSec / 1000ULL;
         }
 
         // --- 3. THE FINAL PRINTOUT ---
         Print(L"Time Elapsed: %lu sec | %lu ms | %lu us | %lu ns\r\n", TimeSec, TimeMs, TimeUs, TotalTimeNs);
         
         if (TotalTimeNs > 0) {
-            Print(L"Performance:  %lu Hash/Sec  |  %lu Hash/us\r\n", HashesPerSec, HashesPerUs);
+            Print(L"Performance:  %lu Hash/Sec  |  %lu Hash/ms\r\n", HashesPerSec, HashesPerMs);
         } else {
             Print(L"Performance:  Execution too fast to measure rate!\r\n");
         }
-
     }
     
     //saving the bechmark test result to the csv file.....
     EFI_FILE_PROTOCOL *RootDir = NULL;
     CHAR8 lineToWrite[512];
     CHAR16 *FileName = L"benchmark_results.csv";
-    CHAR8 *Header = "hashname,wordlist_Name,cycles/hash,hash/sec,hash/microSec\r\n";
+    CHAR8 *Header = "hashname,wordlist_Name,cycles/hash,hash/sec,hash/mili-sec\r\n";
     AsciiSPrint(lineToWrite, sizeof(lineToWrite), "%s,%s,%lu,%lu,%lu\r\n", 
-        Args_Matrix[1], Args_Matrix[2], CyclesPerHash, HashesPerSec, HashesPerUs );
+        Args_Matrix[1], Args_Matrix[2], CyclesPerHash, HashesPerSec, HashesPerMs );
     GetActiveRootDir(&RootDir);
     saveToFile_inAppendMode(RootDir, FileName, Header, lineToWrite);
     
