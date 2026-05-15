@@ -23,7 +23,7 @@ UefiMain (
   // 1. Clear the screen and print the cosmic UI
   gST->ConOut->ClearScreen(gST->ConOut);
   Print(L"===================================================\n");
-  Print(L"                 V O I D H A S H 2                  \n");
+  Print(L"                 V O I D H A S H                   \n");
   Print(L"         Bare-Metal Cryptographic Engine           \n");
   Print(L"===================================================\n\n");
   

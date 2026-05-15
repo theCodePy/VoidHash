@@ -342,7 +342,7 @@ EFI_STATUS handleTest( UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix
         TimestampProtocol->GetProperties(&TimestampProps);
         UINT64 AcpiFreq = TimestampProps.Frequency;
 
-        Print(L"Calibrating bare-metal CPU clock... (0.1s)\r\n");
+        // Print(L"Calibrating bare-metal CPU clock... (0.1s)\r\n");
         UINT64 AcpiStart, AcpiEnd;
         UINT64 TscStartCalib, TscEndCalib;
         UINT64 TargetTicks = AcpiFreq / 10; // Exactly 0.1 seconds
@@ -369,7 +369,7 @@ EFI_STATUS handleTest( UINTN No_of_Command, UINTN MaxWordLen, CHAR16 Args_Matrix
         
         // Accurately cross-multiply to find 1 full second of TSC cycles
         TscFrequency = ((TscEndCalib - TscStartCalib) * AcpiFreq) / (AcpiEnd - AcpiStart);
-        Print(L"Calibrated Silicon Engine Speed: %lu Hz\r\n", TscFrequency);
+        Print(L"calculated TSC frequency: %lu Hz\r\n", TscFrequency);
     }
 
     // --- START THE BENCHMARK ---
