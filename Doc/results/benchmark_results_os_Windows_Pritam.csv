@@ -1,0 +1,6 @@
+hashname,wordlist_Name,cycles/hash,hash/sec,hash/Mili-Sec
+md5,rockyou.txt,66,34590314,34590
+sha1,rockyou.txt,574,3996954,3996
+sha256,rockyou.txt,557,4115041,4115
+sha512,rockyou.txt,592,3875583,3875
+sha384,rockyou.txt,629,3645207,3645
